@@ -1,6 +1,10 @@
 import Image from "next/image";
 import { Player } from "@/types/poker";
 import { Card } from "./Card";
+import { ActionBadge } from "./ActionBadge";
+import { useAppSelector } from "@/hooks/useAppSelector";
+import { useDispatch } from "react-redux";
+import { removeActionBadge } from "@/store/gameSlice";
 
 interface PlayerSeatProps {
   player: Player | null;
@@ -19,6 +23,24 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
   position,
   className = "",
 }) => {
+  const dispatch = useDispatch();
+  const { recentActions } = useAppSelector((state) => state.game);
+
+  // Find the most recent action for this player
+  const playerAction = player
+    ? recentActions
+        .filter((action) => action.playerId === player.id)
+        .sort((a, b) => b.timestamp - a.timestamp)[0]
+    : null;
+
+  // Debug logging
+  if (player && recentActions.length > 0) {
+    console.log(
+      `🎯 PlayerSeat ${player.name}: recent actions =`,
+      recentActions.filter((a) => a.playerId === player.id)
+    );
+    console.log(`🎯 PlayerSeat ${player.name}: playerAction =`, playerAction);
+  }
   if (!player) {
     return (
       <div className={`${className} flex flex-col items-center space-y-2`}>
@@ -42,6 +64,24 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
       {isDealer && (
         <div className="absolute -top-2 -left-2 w-6 h-6 md:w-7 md:h-7 bg-gradient-to-br from-yellow-400 to-yellow-600 border-2 border-white rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg animate-pulse">
           D
+        </div>
+      )}
+
+      {/* Action Badge - Always visible for any player */}
+      {playerAction && (
+        <div className="absolute -top-1 -right-1 z-[100]">
+          <ActionBadge
+            action={playerAction.action}
+            amount={playerAction.amount}
+            onExpire={() =>
+              dispatch(
+                removeActionBadge({
+                  playerId: playerAction.playerId,
+                  timestamp: playerAction.timestamp,
+                })
+              )
+            }
+          />
         </div>
       )}
 

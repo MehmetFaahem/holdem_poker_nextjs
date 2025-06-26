@@ -356,6 +356,9 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
 
   console.log(`Player ${player.name} action: ${action}, amount: ${amount}`);
 
+  // Calculate the actual amount for badge display BEFORE modifying player state
+  let badgeAmount = amount;
+
   // Handle actions (same logic as before)
   switch (action) {
     case "fold":
@@ -402,6 +405,7 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
         return;
       }
       const actualCall = Math.min(callAmount, player.chips);
+      badgeAmount = actualCall; // Set the actual call amount for badge
       player.chips -= actualCall;
       player.inPotThisRound += actualCall;
       player.totalPotContribution += actualCall;
@@ -438,6 +442,7 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
 
     case "all-in":
       const allInChips = player.chips;
+      badgeAmount = allInChips; // Set the all-in amount for badge
       player.chips = 0;
       player.inPotThisRound += allInChips;
       player.totalPotContribution += allInChips;
@@ -457,6 +462,18 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
   }
 
   player.hasActedThisRound = true;
+
+  // Emit the player action to ALL players in the room for action badges
+  console.log(
+    `🚀 SERVER: Broadcasting action ${action} by ${player.name} to room ${gameId}, amount: ${badgeAmount}`
+  );
+  io?.to(gameId).emit("player-action-performed", {
+    playerId: player.id,
+    playerName: player.name,
+    action: action,
+    amount: badgeAmount,
+  });
+  console.log(`🚀 SERVER: Action event emitted successfully`);
 
   const roundComplete = checkBettingRoundComplete(game);
   if (roundComplete) {

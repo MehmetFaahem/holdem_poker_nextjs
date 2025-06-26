@@ -496,6 +496,14 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
     `Action completed. Pot: ${game.pot}, Current bet: ${game.currentBet}`
   );
 
+  // Emit the player action to ALL players in the room for action badges
+  io.to(gameId).emit("player-action-performed", {
+    playerId: player.id,
+    playerName: player.name,
+    action: action,
+    amount: amount,
+  });
+
   // Check if betting round is complete BEFORE moving to next player
   const roundComplete = checkBettingRoundComplete(game);
   console.log(`Round complete check result: ${roundComplete}`);

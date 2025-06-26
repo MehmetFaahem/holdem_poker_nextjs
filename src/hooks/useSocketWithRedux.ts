@@ -11,6 +11,7 @@ import {
   setError,
   clearError,
   resetGame,
+  addActionBadge,
 } from "@/store/gameSlice";
 import { GameState, Player } from "@/types/poker";
 import { showToast } from "@/utils/toast";
@@ -92,6 +93,36 @@ export const useSocketWithRedux = () => {
         showToast.error(errorData.message);
       }
     });
+
+    // Listen for action performed events from server (for all players)
+    socket.on(
+      "player-action-performed",
+      (actionData: {
+        playerId: string;
+        playerName: string;
+        action: string;
+        amount?: number;
+      }) => {
+        console.log(
+          `🎯 ACTION BADGE RECEIVED: ${actionData.playerName} performed ${
+            actionData.action
+          }${actionData.amount ? ` $${actionData.amount}` : ""}`
+        );
+
+        // Add action badge for the player who performed the action
+        dispatch(
+          addActionBadge({
+            playerId: actionData.playerId,
+            action: actionData.action,
+            amount: actionData.amount,
+          })
+        );
+
+        console.log(
+          `🎯 ACTION BADGE DISPATCHED for player ${actionData.playerId}`
+        );
+      }
+    );
 
     // Cleanup on unmount
     return () => {
@@ -225,7 +256,7 @@ export const useSocketWithRedux = () => {
       // Dispatch optimistic update
       dispatch(playerActionStarted({ playerId, action, amount }));
 
-      // Send action to server
+      // Send action to server (badge will be sent from server to all players)
       socketRef.current.emit("player-action", {
         gameId,
         playerId,

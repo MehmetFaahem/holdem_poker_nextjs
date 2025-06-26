@@ -217,14 +217,14 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
 
             {/* Manual Input */}
             <div className="flex items-center space-x-2">
-              <span className="text-white text-xs font-medium">$</span>
+              <span className="text-white text-xs font-medium mt-6">$</span>
               <input
                 type="number"
                 min={canBet ? minimumBet : minimumRaise}
                 max={maxAmount}
                 value={betRaiseAmount}
                 onChange={(e) => setBetRaiseAmount(Number(e.target.value))}
-                className="flex-1 px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-300 text-sm"
+                className="flex-1 px-3 py-1 mt-[20px] bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-300 text-sm"
               />
             </div>
 

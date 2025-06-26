@@ -1,12 +1,20 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { GameState, Player } from "@/types/poker";
 
+interface PlayerAction {
+  playerId: string;
+  action: string;
+  amount?: number;
+  timestamp: number;
+}
+
 interface GameStateSlice {
   gameState: GameState | null;
   currentPlayer: Player | null;
   connectionStatus: "disconnected" | "connecting" | "connected";
   error: string | null;
   isLoading: boolean;
+  recentActions: PlayerAction[];
 }
 
 const initialState: GameStateSlice = {
@@ -15,6 +23,7 @@ const initialState: GameStateSlice = {
   connectionStatus: "disconnected",
   error: null,
   isLoading: false,
+  recentActions: [],
 };
 
 const gameSlice = createSlice({
@@ -148,12 +157,56 @@ const gameSlice = createSlice({
       state.isLoading = action.payload;
     },
 
+    // Action badge management
+    addActionBadge: (
+      state,
+      action: PayloadAction<{
+        playerId: string;
+        action: string;
+        amount?: number;
+      }>
+    ) => {
+      const newAction: PlayerAction = {
+        playerId: action.payload.playerId,
+        action: action.payload.action,
+        amount: action.payload.amount,
+        timestamp: Date.now(),
+      };
+      console.log(`🎯 REDUX: Adding action badge`, newAction);
+      state.recentActions.push(newAction);
+      console.log(
+        `🎯 REDUX: Total recent actions:`,
+        state.recentActions.length
+      );
+    },
+
+    removeActionBadge: (
+      state,
+      action: PayloadAction<{ playerId: string; timestamp: number }>
+    ) => {
+      state.recentActions = state.recentActions.filter(
+        (a) =>
+          !(
+            a.playerId === action.payload.playerId &&
+            a.timestamp === action.payload.timestamp
+          )
+      );
+    },
+
+    clearExpiredActions: (state) => {
+      const now = Date.now();
+      state.recentActions = state.recentActions.filter(
+        (action) => now - action.timestamp < 3000
+      );
+    },
+
     // Reset state
     resetGame: (state) => {
       state.gameState = null;
       state.currentPlayer = null;
       state.error = null;
       state.isLoading = false;
+      state.recentActions = [];
     },
   },
 });
@@ -169,6 +222,9 @@ export const {
   setError,
   clearError,
   setLoading,
+  addActionBadge,
+  removeActionBadge,
+  clearExpiredActions,
   resetGame,
 } = gameSlice.actions;
 
