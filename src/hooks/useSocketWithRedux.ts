@@ -10,6 +10,7 @@ import {
   playerActionFailed,
   setError,
   clearError,
+  resetGame,
 } from "@/store/gameSlice";
 import { GameState, Player } from "@/types/poker";
 
@@ -60,6 +61,12 @@ export const useSocketWithRedux = () => {
       dispatch(setCurrentPlayer(player));
     });
 
+    socket.on("player-left", (data: { playerId: string }) => {
+      console.log("Player left:", data.playerId);
+      // The resetGame dispatch in leaveGame should handle this
+      // This event is mainly for other players to see who left
+    });
+
     socket.on("error", (errorData: { message: string }) => {
       console.error("Socket error:", errorData.message);
       dispatch(playerActionFailed(errorData.message));
@@ -91,9 +98,12 @@ export const useSocketWithRedux = () => {
       if (socketRef.current && connectionStatus === "connected") {
         console.log("Leaving game:", gameId);
         socketRef.current.emit("leave-game", { gameId, playerId });
+
+        // Reset Redux state immediately when leaving
+        dispatch(resetGame());
       }
     },
-    [connectionStatus]
+    [connectionStatus, dispatch]
   );
 
   // Start game function

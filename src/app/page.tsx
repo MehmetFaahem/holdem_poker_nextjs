@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSocketWithRedux } from "@/hooks/useSocketWithRedux";
 import { GameLobby } from "@/components/GameLobby";
 import { PokerTable } from "@/components/PokerTable";
+import { useConfirmationModal } from "@/contexts/ConfirmationModalContext";
 
 export default function Home() {
   const {
@@ -19,6 +20,8 @@ export default function Home() {
     clearError,
   } = useSocketWithRedux();
 
+  const { showConfirmation } = useConfirmationModal();
+
   const [gameId, setGameId] = useState<string | null>(null);
   const [isInGame, setIsInGame] = useState(false);
 
@@ -31,8 +34,21 @@ export default function Home() {
   useEffect(() => {
     if (currentPlayer && gameState) {
       setIsInGame(true);
+    } else if (!currentPlayer || !gameState) {
+      // Reset local state if Redux state is cleared (e.g., when leaving game)
+      setIsInGame(false);
+      setGameId(null);
     }
   }, [currentPlayer, gameState]);
+
+  // Handle cleanup when Redux state is reset
+  useEffect(() => {
+    if (!gameState && !currentPlayer && isInGame) {
+      console.log("Redux state cleared - resetting local state");
+      setIsInGame(false);
+      setGameId(null);
+    }
+  }, [gameState, currentPlayer, isInGame]);
 
   // Auto-clear errors after 5 seconds
   useEffect(() => {
@@ -49,11 +65,32 @@ export default function Home() {
     joinGame(gameId, playerName);
   };
 
-  const handleLeaveGame = () => {
+  const handleLeaveGame = async () => {
+    // Show custom confirmation modal
+    const shouldLeave = await showConfirmation({
+      title: "Leave Game",
+      message:
+        "Are you sure you want to leave the game? This action cannot be undone and you will lose your current position.",
+      confirmText: "Leave Game",
+      cancelText: "Stay",
+      confirmButtonStyle: "danger",
+    });
+
+    if (!shouldLeave) return;
+
     if (gameId && currentPlayer) {
+      console.log(`Leaving game ${gameId} as player ${currentPlayer.name}`);
       leaveGame(gameId, currentPlayer.id);
+
+      // Reset local state immediately
       setIsInGame(false);
       setGameId(null);
+    } else {
+      // Fallback - reset state even if gameId/currentPlayer is missing
+      console.log("Force leaving game - resetting all state");
+      setIsInGame(false);
+      setGameId(null);
+      clearError();
     }
   };
 

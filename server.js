@@ -110,15 +110,51 @@ function handleLeaveGame(socket, gameId, playerId) {
   const game = games.get(gameId);
   if (!game) return;
 
+  const playerToRemove = game.players.find((p) => p.id === playerId);
+  if (!playerToRemove) return;
+
+  console.log(`Player ${playerToRemove.name} leaving game ${gameId}`);
+
+  // Remove player from game
   game.players = game.players.filter((p) => p.id !== playerId);
   playerSockets.delete(playerId);
 
+  // Emit to all players that this player left
+  io.to(gameId).emit("player-left", { playerId });
+
+  // If no players left, delete the game
   if (game.players.length === 0) {
+    console.log(`No players left, deleting game ${gameId}`);
     games.delete(gameId);
   } else {
+    // If game is in progress and this affects the current player index, adjust it
+    if (game.isStarted && game.players.length > 0) {
+      // Recalculate positions for remaining players
+      game.players.forEach((player, index) => {
+        player.position = index;
+      });
+
+      // Adjust current player index if necessary
+      if (game.currentPlayerIndex >= game.players.length) {
+        game.currentPlayerIndex = 0;
+      }
+
+      // If only one player left, end the hand
+      const activePlayers = game.players.filter((p) => !p.isFolded);
+      if (activePlayers.length === 1) {
+        endHand(game, activePlayers[0]);
+      } else if (activePlayers.length === 0) {
+        // Reset game if no active players
+        game.isStarted = false;
+        game.gamePhase = "waiting";
+      }
+    }
+
+    // Update all remaining players
     io.to(gameId).emit("game-updated", game);
   }
 
+  // Remove the leaving player from the game room
   socket.leave(gameId);
 }
 
