@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "dev:server": "node server.js",
-    "dev:all": "concurrently \"npm run dev\" \"npm run dev:server\"",
+    "dev": "node server-with-socketio.js",
+    "dev:next-only": "next dev --turbopack",
+    "dev:old-server": "node server.js",
+    "dev:all-old": "concurrently \"npm run dev:next-only\" \"npm run dev:old-server\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

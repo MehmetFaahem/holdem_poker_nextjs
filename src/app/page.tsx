@@ -11,13 +11,11 @@ export default function Home() {
     gameState,
     currentPlayer,
     connectionStatus,
-    error,
     isLoading,
     joinGame,
     leaveGame,
     startGame,
     playerAction,
-    clearError,
   } = useSocketWithRedux();
 
   const { showConfirmation } = useConfirmationModal();
@@ -30,16 +28,20 @@ export default function Home() {
     fetch("/api/socket").catch(console.error);
   }, []);
 
-  // Set isInGame when player joins successfully
+  // Set isInGame when player joins successfully and sync gameId
   useEffect(() => {
     if (currentPlayer && gameState) {
       setIsInGame(true);
+      // Sync gameId with the actual game state id
+      if (gameState.id && gameId !== gameState.id) {
+        setGameId(gameState.id);
+      }
     } else if (!currentPlayer || !gameState) {
       // Reset local state if Redux state is cleared (e.g., when leaving game)
       setIsInGame(false);
       setGameId(null);
     }
-  }, [currentPlayer, gameState]);
+  }, [currentPlayer, gameState, gameId]);
 
   // Handle cleanup when Redux state is reset
   useEffect(() => {
@@ -49,16 +51,6 @@ export default function Home() {
       setGameId(null);
     }
   }, [gameState, currentPlayer, isInGame]);
-
-  // Auto-clear errors after 5 seconds
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => {
-        clearError();
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error, clearError]);
 
   const handleJoinGame = (gameId: string, playerName: string) => {
     setGameId(gameId);
@@ -90,7 +82,6 @@ export default function Home() {
       console.log("Force leaving game - resetting all state");
       setIsInGame(false);
       setGameId(null);
-      clearError();
     }
   };
 
@@ -104,8 +95,22 @@ export default function Home() {
   };
 
   const handleStartGame = () => {
-    if (gameId) {
-      startGame(gameId);
+    console.log("=== HANDLE START GAME DEBUG ===");
+    console.log("gameId:", gameId);
+    console.log("gameState:", gameState);
+    console.log("currentPlayer:", currentPlayer);
+
+    const actualGameId = gameId || gameState?.id;
+
+    if (actualGameId) {
+      console.log("Calling startGame with gameId:", actualGameId);
+      startGame(actualGameId);
+      // Update local gameId if it was missing
+      if (!gameId && gameState?.id) {
+        setGameId(gameState.id);
+      }
+    } else {
+      console.log("No gameId available in either gameId state or gameState.id");
     }
   };
 
@@ -143,31 +148,9 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Error Display */}
-        {error && (
-          <div className="fixed top-20 right-6 z-50 max-w-md animate-slideInUp">
-            <div className="glass bg-red-500/20 border border-red-500/30 text-red-400 p-4 rounded-xl shadow-lg">
-              <div className="flex justify-between items-start">
-                <div className="flex items-start space-x-3">
-                  <span className="text-lg">⚠️</span>
-                  <p className="text-sm font-medium">{error}</p>
-                </div>
-                <button
-                  onClick={clearError}
-                  className="ml-4 text-red-400 hover:text-red-300 text-lg transition-colors"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <GameLobby
           onJoinGame={handleJoinGame}
           isConnected={connectionStatus === "connected"}
-          error={error}
-          onClearError={clearError}
         />
       </div>
     );
@@ -230,26 +213,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-
-      {/* Error Display in Game */}
-      {error && (
-        <div className="fixed top-20 left-6 z-50 max-w-md animate-slideInUp">
-          <div className="glass bg-red-500/20 border border-red-500/30 text-red-400 p-4 rounded-xl shadow-lg">
-            <div className="flex justify-between items-start">
-              <div className="flex items-start space-x-3">
-                <span className="text-lg">⚠️</span>
-                <p className="text-sm font-medium">{error}</p>
-              </div>
-              <button
-                onClick={clearError}
-                className="ml-4 text-red-400 hover:text-red-300 text-lg transition-colors"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Game Controls */}
       <div className="absolute top-6 right-6 z-50 flex gap-3">

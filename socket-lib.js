@@ -1,16 +1,14 @@
-import { Server as SocketIOServer } from "socket.io";
-import { Server as HTTPServer } from "http";
-import { Socket } from "socket.io";
+const { Server: SocketIOServer } = require("socket.io");
 
 // Game management
 const games = new Map();
 const playerSockets = new Map();
 
 // Store the Socket.IO server instance
-let io: SocketIOServer | null = null;
+let io = null;
 
 // Initialize Socket.IO server
-export function initSocketIO(httpServer: HTTPServer) {
+function initSocketIO(httpServer) {
   if (io) return io;
 
   io = new SocketIOServer(httpServer, {
@@ -25,7 +23,7 @@ export function initSocketIO(httpServer: HTTPServer) {
   });
 
   // Socket event handlers
-  io.on("connection", (socket: Socket) => {
+  io.on("connection", (socket) => {
     console.log("Player connected:", socket.id);
 
     socket.on("join-game", ({ gameId, playerName }) => {
@@ -52,16 +50,16 @@ export function initSocketIO(httpServer: HTTPServer) {
   return io;
 }
 
-function handleJoinGame(socket: Socket, gameId: string, playerName: string) {
+function handleJoinGame(socket, gameId, playerName) {
+  console.log(`Player ${playerName} joining game ${gameId}`);
+
   if (!gameId || !playerName) {
     socket.emit("error", { message: "Game ID and player name are required" });
     return;
   }
 
   let game = games.get(gameId);
-
   if (!game) {
-    // Create new game
     game = {
       id: gameId,
       players: [],
@@ -117,16 +115,16 @@ function handleJoinGame(socket: Socket, gameId: string, playerName: string) {
   io?.to(gameId).emit("game-updated", game);
 }
 
-function handleLeaveGame(socket: Socket, gameId: string, playerId: string) {
+function handleLeaveGame(socket, gameId, playerId) {
   const game = games.get(gameId);
   if (!game) return;
 
-  const playerToRemove = game.players.find((p: any) => p.id === playerId);
+  const playerToRemove = game.players.find((p) => p.id === playerId);
   if (!playerToRemove) return;
 
   console.log(`Player ${playerToRemove.name} leaving game ${gameId}`);
 
-  game.players = game.players.filter((p: any) => p.id !== playerId);
+  game.players = game.players.filter((p) => p.id !== playerId);
   playerSockets.delete(playerId);
 
   io?.to(gameId).emit("player-left", { playerId });
@@ -136,7 +134,7 @@ function handleLeaveGame(socket: Socket, gameId: string, playerId: string) {
     games.delete(gameId);
   } else {
     if (game.isStarted && game.players.length > 0) {
-      game.players.forEach((player: any, index: number) => {
+      game.players.forEach((player, index) => {
         player.position = index;
       });
 
@@ -144,7 +142,7 @@ function handleLeaveGame(socket: Socket, gameId: string, playerId: string) {
         game.currentPlayerIndex = 0;
       }
 
-      const activePlayers = game.players.filter((p: any) => !p.isFolded);
+      const activePlayers = game.players.filter((p) => !p.isFolded);
       if (activePlayers.length === 1) {
         endHand(game, activePlayers[0]);
       } else if (activePlayers.length === 0) {
@@ -159,7 +157,7 @@ function handleLeaveGame(socket: Socket, gameId: string, playerId: string) {
   socket.leave(gameId);
 }
 
-function handleStartGame(socket: Socket, gameId: string) {
+function handleStartGame(socket, gameId) {
   const game = games.get(gameId);
   if (!game || game.players.length < 2) {
     socket.emit("error", { message: "Need at least 2 players to start" });
@@ -182,7 +180,7 @@ function handleStartGame(socket: Socket, gameId: string) {
   game.pot = 0;
   game.currentBet = 0;
 
-  game.players.forEach((player: any, index: number) => {
+  game.players.forEach((player, index) => {
     player.holeCards = [];
     player.inPotThisRound = 0;
     player.totalPotContribution = 0;
@@ -240,8 +238,8 @@ function handleStartGame(socket: Socket, gameId: string) {
 
   // Post blinds
   if (game.players.length >= 2) {
-    let smallBlindPlayerIndex: number;
-    let bigBlindPlayerIndex: number;
+    let smallBlindPlayerIndex;
+    let bigBlindPlayerIndex;
 
     if (isHeadsUp(game)) {
       // Heads-up: Dealer is small blind, other player is big blind
@@ -302,20 +300,14 @@ function handleStartGame(socket: Socket, gameId: string) {
   io?.to(gameId).emit("game-updated", game);
 }
 
-function handlePlayerAction(
-  socket: Socket,
-  gameId: string,
-  playerId: string,
-  action: string,
-  amount: number
-) {
+function handlePlayerAction(socket, gameId, playerId, action, amount) {
   const game = games.get(gameId);
   if (!game || !game.isStarted) {
     socket.emit("error", { message: "Game not started" });
     return;
   }
 
-  const activePlayers = game.players.filter((p: any) => !p.isFolded);
+  const activePlayers = game.players.filter((p) => !p.isFolded);
   if (activePlayers.length < 2) {
     console.log(`Only ${activePlayers.length} active players, ending hand`);
     if (activePlayers.length === 1) {
@@ -325,7 +317,7 @@ function handlePlayerAction(
     return;
   }
 
-  const player = game.players.find((p: any) => p.id === playerId);
+  const player = game.players.find((p) => p.id === playerId);
   if (!player) {
     socket.emit("error", { message: "Player not found" });
     return;
@@ -356,7 +348,7 @@ function handlePlayerAction(
 
   console.log(`Player ${player.name} action: ${action}, amount: ${amount}`);
 
-  // Handle actions
+  // Handle actions (same logic as before)
   switch (action) {
     case "fold":
       player.isFolded = true;
@@ -468,7 +460,8 @@ function handlePlayerAction(
   io?.to(gameId).emit("game-updated", game);
 }
 
-function moveToNextPlayer(game: any) {
+// Include all other functions from the original server.js...
+function moveToNextPlayer(game) {
   const startingIndex = game.currentPlayerIndex;
   let attempts = 0;
   const maxAttempts = game.players.length;
@@ -488,8 +481,8 @@ function moveToNextPlayer(game: any) {
   }
 }
 
-function checkBettingRoundComplete(game: any) {
-  const activePlayers = game.players.filter((p: any) => !p.isFolded);
+function checkBettingRoundComplete(game) {
+  const activePlayers = game.players.filter((p) => !p.isFolded);
 
   if (activePlayers.length <= 1) {
     if (activePlayers.length === 1) {
@@ -499,7 +492,7 @@ function checkBettingRoundComplete(game: any) {
   }
 
   const playersWhoCanAct = game.players.filter(
-    (p: any) => !p.isFolded && !p.isAllIn
+    (p) => !p.isFolded && !p.isAllIn
   );
 
   if (playersWhoCanAct.length === 0) {
@@ -518,11 +511,9 @@ function checkBettingRoundComplete(game: any) {
     }
   }
 
-  const allPlayersActed = playersWhoCanAct.every(
-    (p: any) => p.hasActedThisRound
-  );
+  const allPlayersActed = playersWhoCanAct.every((p) => p.hasActedThisRound);
   const allBetsEqual = playersWhoCanAct.every(
-    (p: any) => p.inPotThisRound === game.currentBet
+    (p) => p.inPotThisRound === game.currentBet
   );
 
   if (allPlayersActed && allBetsEqual) {
@@ -533,8 +524,8 @@ function checkBettingRoundComplete(game: any) {
   return false;
 }
 
-function advanceGamePhase(game: any) {
-  game.players.forEach((p: any) => {
+function advanceGamePhase(game) {
+  game.players.forEach((p) => {
     p.inPotThisRound = 0;
     p.hasActedThisRound = false;
   });
@@ -579,17 +570,17 @@ function advanceGamePhase(game: any) {
   moveToNextPlayer(game);
 }
 
-function dealFlop(game: any) {
+function dealFlop(game) {
   const deck = createShuffledDeck();
   game.communityCards = deck.slice(0, 3);
 }
 
-function dealTurn(game: any) {
+function dealTurn(game) {
   const deck = createShuffledDeck();
   game.communityCards.push(deck[0]);
 }
 
-function dealRiver(game: any) {
+function dealRiver(game) {
   const deck = createShuffledDeck();
   game.communityCards.push(deck[0]);
 }
@@ -623,7 +614,6 @@ function createShuffledDeck() {
     }
   }
 
-  // Shuffle
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -632,15 +622,15 @@ function createShuffledDeck() {
   return deck;
 }
 
-function advanceToShowdown(game: any) {
+function advanceToShowdown(game) {
   game.gamePhase = "showdown";
-  const activePlayers = game.players.filter((p: any) => !p.isFolded);
+  const activePlayers = game.players.filter((p) => !p.isFolded);
   if (activePlayers.length > 0) {
     endHand(game, activePlayers[0]);
   }
 }
 
-function endHand(game: any, winner: any) {
+function endHand(game, winner) {
   winner.chips += game.pot;
   game.gamePhase = "ended";
   game.winners = [{ playerId: winner.id, amount: game.pot, hand: "Winner" }];
@@ -651,7 +641,7 @@ function endHand(game: any, winner: any) {
   startHandCountdown(game);
 }
 
-function startHandCountdown(game: any) {
+function startHandCountdown(game) {
   if (game.countdownInterval) {
     clearInterval(game.countdownInterval);
   }
@@ -669,7 +659,7 @@ function startHandCountdown(game: any) {
   }, 1000);
 }
 
-function startNewHand(game: any) {
+function startNewHand(game) {
   game.dealerPosition = (game.dealerPosition + 1) % game.players.length;
   game.gamePhase = "preflop";
   game.pot = 0;
@@ -678,7 +668,7 @@ function startNewHand(game: any) {
   game.winners = null;
   game.nextHandCountdown = null;
 
-  game.players.forEach((player: any) => {
+  game.players.forEach((player) => {
     player.holeCards = [];
     player.inPotThisRound = 0;
     player.totalPotContribution = 0;
@@ -699,8 +689,8 @@ function startNewHand(game: any) {
   }
 
   if (game.players.length >= 2) {
-    let smallBlindPlayerIndex: number;
-    let bigBlindPlayerIndex: number;
+    let smallBlindPlayerIndex;
+    let bigBlindPlayerIndex;
 
     if (isHeadsUp(game)) {
       // Heads-up: Dealer is small blind, other player is big blind
@@ -747,12 +737,12 @@ function startNewHand(game: any) {
   io?.to(game.id).emit("game-updated", game);
 }
 
-function handleDisconnect(socket: Socket) {
+function handleDisconnect(socket) {
   const playerId = socket.id;
   playerSockets.delete(playerId);
 
   for (const [gameId, game] of games.entries()) {
-    const playerIndex = game.players.findIndex((p: any) => p.id === playerId);
+    const playerIndex = game.players.findIndex((p) => p.id === playerId);
     if (playerIndex !== -1) {
       game.players.splice(playerIndex, 1);
       if (game.players.length === 0) {
@@ -765,12 +755,12 @@ function handleDisconnect(socket: Socket) {
 }
 
 // Helper function to determine if this is a heads-up game
-function isHeadsUp(game: any): boolean {
+function isHeadsUp(game) {
   return game.players.length === 2;
 }
 
 // Helper function to get the correct action order for heads-up games
-function getHeadsUpActionOrder(game: any, gamePhase: string) {
+function getHeadsUpActionOrder(game, gamePhase) {
   if (!isHeadsUp(game)) return null;
 
   const dealerIndex = game.dealerPosition;
@@ -785,4 +775,4 @@ function getHeadsUpActionOrder(game: any, gamePhase: string) {
   }
 }
 
-export { io };
+module.exports = { initSocketIO };

@@ -5,15 +5,11 @@ import { useState } from "react";
 interface GameLobbyProps {
   onJoinGame: (gameId: string, playerName: string) => void;
   isConnected: boolean;
-  error: string | null;
-  onClearError: () => void;
 }
 
 export const GameLobby: React.FC<GameLobbyProps> = ({
   onJoinGame,
   isConnected,
-  error,
-  onClearError,
 }) => {
   const [gameId, setGameId] = useState("");
   const [playerName, setPlayerName] = useState("");
@@ -97,21 +93,6 @@ export const GameLobby: React.FC<GameLobbyProps> = ({
                   : "Connecting to Server..."}
               </div>
             </div>
-
-            {/* Error Display */}
-            {error && (
-              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl animate-slideInUp">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">{error}</span>
-                  <button
-                    onClick={onClearError}
-                    className="text-red-400 hover:text-red-300 ml-3 text-lg transition-colors"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            )}
 
             <form onSubmit={handleJoinGame} className="space-y-6">
               {/* Player Name Input */}

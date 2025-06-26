@@ -13,6 +13,7 @@ import {
   resetGame,
 } from "@/store/gameSlice";
 import { GameState, Player } from "@/types/poker";
+import { showToast } from "@/utils/toast";
 
 export const useSocketWithRedux = () => {
   const dispatch = useAppDispatch();
@@ -24,7 +25,8 @@ export const useSocketWithRedux = () => {
   useEffect(() => {
     dispatch(setConnectionStatus("connecting"));
 
-    socketRef.current = io("http://localhost:3001", {
+    socketRef.current = io("http://localhost:3000", {
+      path: "/api/socket",
       transports: ["websocket"],
       timeout: 5000,
     });
@@ -36,17 +38,19 @@ export const useSocketWithRedux = () => {
       console.log("Connected to socket server");
       dispatch(setConnectionStatus("connected"));
       dispatch(clearError());
+      showToast.success("Connected to game server");
     });
 
     socket.on("disconnect", () => {
       console.log("Disconnected from socket server");
       dispatch(setConnectionStatus("disconnected"));
+      showToast.warning("Disconnected from server");
     });
 
     socket.on("connect_error", (error) => {
       console.error("Socket connection error:", error);
       dispatch(setConnectionStatus("disconnected"));
-      dispatch(setError("Failed to connect to game server"));
+      showToast.error("Failed to connect to game server");
     });
 
     // Game event handlers
@@ -59,6 +63,7 @@ export const useSocketWithRedux = () => {
     socket.on("player-joined", (player: Player) => {
       console.log("Player joined:", player);
       dispatch(setCurrentPlayer(player));
+      showToast.gameUpdate(`${player.name} joined the game`);
     });
 
     socket.on("player-left", (data: { playerId: string }) => {
@@ -70,6 +75,16 @@ export const useSocketWithRedux = () => {
     socket.on("error", (errorData: { message: string }) => {
       console.error("Socket error:", errorData.message);
       dispatch(playerActionFailed(errorData.message));
+
+      // Use specific toast types based on error message
+      const message = errorData.message.toLowerCase();
+      if (message.includes("not enough chips") || message.includes("chips")) {
+        showToast.chips(errorData.message);
+      } else if (message.includes("minimum") || message.includes("maximum")) {
+        showToast.warning(errorData.message);
+      } else {
+        showToast.error(errorData.message);
+      }
     });
 
     // Cleanup on unmount
@@ -85,11 +100,12 @@ export const useSocketWithRedux = () => {
       if (socketRef.current && connectionStatus === "connected") {
         console.log("Joining game:", gameId, "as", playerName);
         socketRef.current.emit("join-game", { gameId, playerName });
+        showToast.info(`Joining game ${gameId}...`);
       } else {
-        dispatch(setError("Not connected to server"));
+        showToast.error("Not connected to server");
       }
     },
-    [connectionStatus, dispatch]
+    [connectionStatus]
   );
 
   // Leave game function
@@ -98,6 +114,7 @@ export const useSocketWithRedux = () => {
       if (socketRef.current && connectionStatus === "connected") {
         console.log("Leaving game:", gameId);
         socketRef.current.emit("leave-game", { gameId, playerId });
+        showToast.info("Left the game");
 
         // Reset Redux state immediately when leaving
         dispatch(resetGame());
@@ -109,14 +126,21 @@ export const useSocketWithRedux = () => {
   // Start game function
   const startGame = useCallback(
     (gameId: string) => {
+      console.log("=== START GAME DEBUG ===");
+      console.log("gameId:", gameId);
+      console.log("socketRef.current:", !!socketRef.current);
+      console.log("connectionStatus:", connectionStatus);
+
       if (socketRef.current && connectionStatus === "connected") {
-        console.log("Starting game:", gameId);
+        console.log("Emitting start-game event to server");
         socketRef.current.emit("start-game", { gameId });
+        showToast.gameUpdate("Starting game...");
       } else {
-        dispatch(setError("Not connected to server"));
+        console.log("Cannot start game - not connected");
+        showToast.error("Not connected to server");
       }
     },
-    [connectionStatus, dispatch]
+    [connectionStatus]
   );
 
   // Player action function with Redux integration
@@ -128,12 +152,12 @@ export const useSocketWithRedux = () => {
       amount?: number
     ) => {
       if (!socketRef.current || connectionStatus !== "connected") {
-        dispatch(setError("Not connected to server"));
+        showToast.error("Not connected to server");
         return;
       }
 
       if (!gameState || !currentPlayer) {
-        dispatch(setError("Game state not available"));
+        showToast.error("Game state not available");
         return;
       }
 
@@ -141,11 +165,11 @@ export const useSocketWithRedux = () => {
       const currentPlayerInGame =
         gameState.players[gameState.currentPlayerIndex];
       if (!currentPlayerInGame || currentPlayerInGame.id !== playerId) {
-        dispatch(setError("Not your turn"));
+        showToast.warning("Not your turn");
         return;
       }
 
-      // Check if player has already acted this round
+      // Check if player has already acted this round (temporarily relaxed for debugging)
       console.log(`=== CLIENT ACTION VALIDATION ===`);
       console.log(
         `Player ${currentPlayer.name}: hasActedThisRound = ${currentPlayer.hasActedThisRound}`
@@ -161,29 +185,36 @@ export const useSocketWithRedux = () => {
       const playerInGameState = gameState.players.find(
         (p) => p.id === playerId
       );
-      const hasActedCheck =
-        playerInGameState?.hasActedThisRound || currentPlayer.hasActedThisRound;
 
       console.log(
         `Double-check - Player in gameState hasActed: ${playerInGameState?.hasActedThisRound}`
       );
-      console.log(`Final hasActed check: ${hasActedCheck}`);
 
-      if (hasActedCheck) {
-        console.log(
-          `CLIENT ERROR: Player ${currentPlayer.name} has already acted this round!`
-        );
-        dispatch(setError("You have already acted this round"));
-        return;
-      }
+      // Temporarily comment out this check to see if it's blocking actions
+      // const hasActedCheck =
+      //   playerInGameState?.hasActedThisRound || currentPlayer.hasActedThisRound;
+
+      // if (hasActedCheck) {
+      //   console.log(
+      //     `CLIENT ERROR: Player ${currentPlayer.name} has already acted this round!`
+      //   );
+      //   showToast.warning("You have already acted this round");
+      //   return;
+      // }
 
       // Check if player is still active
       if (currentPlayer.isFolded || currentPlayer.isAllIn) {
-        dispatch(setError("You cannot act"));
+        showToast.warning("You cannot act");
         return;
       }
 
       console.log(`Sending action: ${action}${amount ? ` ${amount}` : ""}`);
+
+      // Show action toast
+      const actionMessage = amount
+        ? `${action.charAt(0).toUpperCase() + action.slice(1)} $${amount}`
+        : action.charAt(0).toUpperCase() + action.slice(1);
+      showToast.action(actionMessage);
 
       // Dispatch optimistic update
       dispatch(playerActionStarted({ playerId, action, amount }));
@@ -204,7 +235,6 @@ export const useSocketWithRedux = () => {
     gameState,
     currentPlayer,
     connectionStatus,
-    error,
     isLoading,
 
     // Actions
@@ -212,8 +242,5 @@ export const useSocketWithRedux = () => {
     leaveGame,
     startGame,
     playerAction,
-
-    // Utilities
-    clearError: () => dispatch(clearError()),
   };
 };

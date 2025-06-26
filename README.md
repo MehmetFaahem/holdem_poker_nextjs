@@ -1,24 +1,43 @@
-# Texas Hold'em Poker - Multiplayer Online
+# Texas Hold'em Poker Game
 
-A real-time multiplayer Texas Hold'em poker game built with Next.js, Socket.IO, and TypeScript. Features a responsive design with a custom poker table layout and professional card handling.
+A real-time multiplayer Texas Hold'em poker game built with Next.js 13+ and Socket.IO.
 
 ## Features
 
-- **Real-time Multiplayer**: Up to 6 players per game using Socket.IO
-- **Responsive Design**: Fully responsive poker table that works on all devices
-- **Professional UI**: Custom-designed poker table with realistic card and chip graphics
-- **Complete Poker Logic**: Full Texas Hold'em implementation with hand evaluation
-- **Interactive Controls**: Intuitive betting interface with raise sliders and quick-bet buttons
-- **Game Management**: Create/join games with shareable game IDs
+- Real-time multiplayer gameplay
+- Complete Texas Hold'em poker rules
+- Player actions: fold, check, call, bet, raise, all-in
+- Automatic game flow (preflop, flop, turn, river, showdown)
+- Responsive design with modern UI
+- Toast notifications for game events
 
-## Game Features
+## Tech Stack
 
-- **Texas Hold'em Rules**: Standard poker rules with preflop, flop, turn, and river
-- **Blind System**: Configurable small blind ($10) and big blind ($20)
-- **Starting Chips**: Each player starts with $1,000
-- **Hand Evaluation**: Automatic hand ranking and winner determination
-- **Player Actions**: Fold, Check, Call, Raise, and All-in options
-- **Real-time Updates**: Instant game state synchronization across all players
+- **Frontend**: Next.js 13+ (App Router), React, TypeScript, Tailwind CSS
+- **State Management**: Redux Toolkit
+- **Real-time Communication**: Socket.IO
+- **Backend**: Integrated Socket.IO server with Next.js custom server
+
+## Architecture
+
+This application uses an integrated Socket.IO server that runs alongside Next.js, eliminating the need for a separate server process. The Socket.IO server is initialized within a custom Next.js server.
+
+### File Structure
+
+```
+texas_holdem/
+├── src/
+│   ├── app/                    # Next.js App Router
+│   ├── components/             # React components
+│   ├── hooks/                  # Custom React hooks
+│   ├── lib/                    # Utility libraries
+│   ├── store/                  # Redux store configuration
+│   ├── types/                  # TypeScript type definitions
+│   └── utils/                  # Utility functions
+├── server-with-socketio.js     # Custom Next.js server with Socket.IO
+├── socket-lib.js               # Socket.IO server logic
+└── server.js                   # Legacy standalone server (deprecated)
+```
 
 ## Getting Started
 
@@ -42,100 +61,135 @@ cd texas_holdem
 npm install
 ```
 
-### Running the Game
-
-The game requires both a Next.js frontend and a Socket.IO backend server.
-
-#### Option 1: Run both servers simultaneously (recommended)
-
-```bash
-npm run dev:all
-```
-
-#### Option 2: Run servers separately
-
-Terminal 1 - Next.js frontend:
+3. Start the development server:
 
 ```bash
 npm run dev
 ```
 
-Terminal 2 - Socket.IO backend:
+The application will be available at `http://localhost:3000` with Socket.IO integrated.
 
-```bash
-npm run dev:server
-```
+### Available Scripts
 
-### Access the Game
-
-1. Open [http://localhost:3000](http://localhost:3000) in your browser
-2. Enter your name and a game ID (or generate one)
-3. Share the game ID with friends to play together
-4. Start the game when you have at least 2 players
+- `npm run dev` - Start the integrated development server (Next.js + Socket.IO)
+- `npm run dev:next-only` - Start only the Next.js development server
+- `npm run dev:old-server` - Start the legacy standalone Socket.IO server
+- `npm run build` - Build the application for production
+- `npm run start` - Start the production server
+- `npm run lint` - Run ESLint
 
 ## How to Play
 
-1. **Join a Game**: Enter your name and either create a new game ID or join an existing one
-2. **Wait for Players**: Games need 2-6 players to start
-3. **Start Game**: Click "Start Game" when ready (requires at least 2 players)
-4. **Play Poker**: Use the action buttons to fold, check, call, raise, or go all-in
-5. **Win Chips**: Best hand wins the pot, games continue with rotating dealer button
+1. Open the application in your browser
+2. Enter a game ID and your player name
+3. Wait for other players to join (minimum 2 players)
+4. Click "Start Game" when ready
+5. Use the action buttons to play:
+   - **Fold**: Give up your hand
+   - **Check**: Pass without betting (when no bet is required)
+   - **Call**: Match the current bet
+   - **Bet**: Place the first bet in a round
+   - **Raise**: Increase the current bet
+   - **All-in**: Bet all your remaining chips
 
-## Game Controls
+## Socket.IO Integration
 
-- **Fold**: Give up your hand
-- **Check**: Pass if no bet is required
-- **Call**: Match the current bet
-- **Raise**: Increase the bet (use slider or input field)
-- **All-in**: Bet all remaining chips
+The application uses a custom Next.js server that integrates Socket.IO for real-time communication:
 
-## Project Structure
+### Server Setup
 
+- Custom server file: `server-with-socketio.js`
+- Socket.IO logic: `socket-lib.js`
+- Socket.IO path: `/api/socket`
+- Default port: 3000 (same as Next.js)
+
+### Client Connection
+
+The frontend connects to Socket.IO using the same port as the Next.js application:
+
+```typescript
+const socket = io("http://localhost:3000", {
+  path: "/api/socket",
+  transports: ["websocket"],
+});
 ```
-src/
-├── app/                 # Next.js app router
-├── components/          # React components
-│   ├── Card.tsx        # Individual card display
-│   ├── PlayerSeat.tsx  # Player seat with info and cards
-│   ├── ActionButtons.tsx # Betting action controls
-│   ├── PokerTable.tsx  # Main game table layout
-│   └── GameLobby.tsx   # Game joining interface
-├── hooks/              # Custom React hooks
-│   └── useSocket.ts    # Socket.IO client management
-├── lib/                # Server-side logic
-│   └── socket-server.ts # Socket.IO server with game logic
-├── types/              # TypeScript type definitions
-│   └── poker.ts        # Game types and interfaces
-└── utils/              # Utility functions
-    └── poker-logic.ts  # Poker hand evaluation and deck management
+
+### Game Events
+
+**Client → Server:**
+
+- `join-game` - Join a game room
+- `leave-game` - Leave a game room
+- `start-game` - Start the game
+- `player-action` - Perform a poker action
+
+**Server → Client:**
+
+- `game-updated` - Game state changed
+- `player-joined` - New player joined
+- `player-left` - Player left the game
+- `error` - Error occurred
+
+## Game Logic
+
+The poker game implements standard Texas Hold'em rules:
+
+1. **Pre-flop**: Players receive 2 hole cards, blinds are posted
+2. **Flop**: 3 community cards are revealed
+3. **Turn**: 4th community card is revealed
+4. **River**: 5th community card is revealed
+5. **Showdown**: Players reveal hands, best hand wins
+
+### Betting Rules
+
+- Small blind: 10 chips
+- Big blind: 20 chips
+- Minimum raise: Equal to the big blind
+- Players start with 1000 chips
+
+## Development
+
+### Adding New Features
+
+1. **Frontend Components**: Add to `src/components/`
+2. **Game Logic**: Modify `socket-lib.js`
+3. **State Management**: Update Redux slices in `src/store/`
+4. **Types**: Add TypeScript definitions in `src/types/`
+
+### Debugging
+
+- Socket.IO events are logged to the browser console
+- Server logs are visible in the terminal
+- Redux state can be inspected with Redux DevTools
+
+## Production Deployment
+
+1. Build the application:
+
+```bash
+npm run build
 ```
 
-## Technical Details
+2. Start the production server:
 
-- **Frontend**: Next.js 15 with React 19 and TypeScript
-- **Styling**: Tailwind CSS with custom animations
-- **Real-time**: Socket.IO for multiplayer communication
-- **State Management**: React hooks with Socket.IO integration
-- **Card Images**: High-quality PNG card graphics included
+```bash
+npm start
+```
 
-## Responsive Design
+For production deployment, ensure:
 
-The poker table automatically scales for different screen sizes:
-
-- **Desktop**: Full-size table with all features
-- **Tablet**: Scaled table (80%) optimized for touch
-- **Mobile**: Compact view (60%) with touch-friendly controls
+- Environment variables are properly set
+- Socket.IO CORS is configured for your domain
+- The custom server is supported by your hosting platform
 
 ## Contributing
 
-Feel free to contribute to this project! Some areas for improvement:
-
-- Tournament mode
-- Betting history
-- Player statistics
-- Sound effects
-- Additional poker variants
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## License
 
-This project is for educational and entertainment purposes.
+[Add your license information here]

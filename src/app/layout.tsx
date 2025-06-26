@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ReduxProvider } from "@/components/ReduxProvider";
 import { ConfirmationModalProvider } from "@/contexts/ConfirmationModalContext";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +33,23 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ReduxProvider>
-          <ConfirmationModalProvider>{children}</ConfirmationModalProvider>
+          <ConfirmationModalProvider>
+            {children}
+            <ToastContainer
+              position="top-right"
+              autoClose={5000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme="dark"
+              toastClassName="!bg-slate-800/95 !border !border-white/10 !backdrop-blur-sm !text-white !font-medium"
+              progressClassName="!bg-gradient-to-r !from-blue-500 !to-purple-500"
+            />
+          </ConfirmationModalProvider>
         </ReduxProvider>
       </body>
     </html>
