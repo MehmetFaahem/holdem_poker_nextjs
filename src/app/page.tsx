@@ -1,103 +1,246 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSocketWithRedux } from "@/hooks/useSocketWithRedux";
+import { GameLobby } from "@/components/GameLobby";
+import { PokerTable } from "@/components/PokerTable";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const {
+    gameState,
+    currentPlayer,
+    connectionStatus,
+    error,
+    isLoading,
+    joinGame,
+    leaveGame,
+    startGame,
+    playerAction,
+    clearError,
+  } = useSocketWithRedux();
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const [gameId, setGameId] = useState<string | null>(null);
+  const [isInGame, setIsInGame] = useState(false);
+
+  // Initialize Socket.IO server on component mount
+  useEffect(() => {
+    fetch("/api/socket").catch(console.error);
+  }, []);
+
+  // Set isInGame when player joins successfully
+  useEffect(() => {
+    if (currentPlayer && gameState) {
+      setIsInGame(true);
+    }
+  }, [currentPlayer, gameState]);
+
+  // Auto-clear errors after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        clearError();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, clearError]);
+
+  const handleJoinGame = (gameId: string, playerName: string) => {
+    setGameId(gameId);
+    joinGame(gameId, playerName);
+  };
+
+  const handleLeaveGame = () => {
+    if (gameId && currentPlayer) {
+      leaveGame(gameId, currentPlayer.id);
+      setIsInGame(false);
+      setGameId(null);
+    }
+  };
+
+  const handlePlayerAction = (
+    action: "fold" | "check" | "call" | "bet" | "raise" | "all-in",
+    amount?: number
+  ) => {
+    if (gameId && currentPlayer) {
+      playerAction(gameId, currentPlayer.id, action, amount);
+    }
+  };
+
+  const handleStartGame = () => {
+    if (gameId) {
+      startGame(gameId);
+    }
+  };
+
+  // Show lobby if not in a game
+  if (!isInGame || !gameState || !currentPlayer) {
+    return (
+      <div className="relative">
+        {/* Connection Status */}
+        <div className="fixed top-6 right-6 z-50">
+          <div
+            className={`glass px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
+              connectionStatus === "connected"
+                ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                : connectionStatus === "connecting"
+                ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                : "bg-red-500/20 text-red-400 border border-red-500/30"
+            }`}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            <div className="flex items-center space-x-2">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  connectionStatus === "connected"
+                    ? "bg-green-400 animate-pulse"
+                    : connectionStatus === "connecting"
+                    ? "bg-amber-400 animate-pulse"
+                    : "bg-red-400 animate-pulse"
+                }`}
+              ></div>
+              <span>
+                {connectionStatus.charAt(0).toUpperCase() +
+                  connectionStatus.slice(1)}
+                {isLoading && " (Processing...)"}
+              </span>
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+
+        {/* Error Display */}
+        {error && (
+          <div className="fixed top-20 right-6 z-50 max-w-md animate-slideInUp">
+            <div className="glass bg-red-500/20 border border-red-500/30 text-red-400 p-4 rounded-xl shadow-lg">
+              <div className="flex justify-between items-start">
+                <div className="flex items-start space-x-3">
+                  <span className="text-lg">⚠️</span>
+                  <p className="text-sm font-medium">{error}</p>
+                </div>
+                <button
+                  onClick={clearError}
+                  className="ml-4 text-red-400 hover:text-red-300 text-lg transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <GameLobby
+          onJoinGame={handleJoinGame}
+          isConnected={connectionStatus === "connected"}
+          error={error}
+          onClearError={clearError}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="glass-dark p-8 rounded-2xl shadow-2xl animate-slideInUp">
+            <div className="flex flex-col items-center space-x-0 space-y-4">
+              <div className="relative">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500/30"></div>
+                <div className="absolute inset-0 animate-spin rounded-full h-12 w-12 border-4 border-transparent border-t-blue-500"></div>
+              </div>
+              <div className="text-center">
+                <div className="text-white font-bold text-lg">
+                  Processing Action
+                </div>
+                <div className="text-white/60 text-sm">Please wait...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <PokerTable
+        gameState={gameState}
+        currentPlayer={currentPlayer}
+        onPlayerAction={handlePlayerAction}
+      />
+
+      {/* Connection Status in Game */}
+      <div className="fixed top-6 left-6 z-50">
+        <div
+          className={`glass px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
+            connectionStatus === "connected"
+              ? "bg-green-500/20 text-green-400 border border-green-500/30"
+              : connectionStatus === "connecting"
+              ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+              : "bg-red-500/20 text-red-400 border border-red-500/30"
+          }`}
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          <div className="flex items-center space-x-2">
+            <div
+              className={`w-2 h-2 rounded-full ${
+                connectionStatus === "connected"
+                  ? "bg-green-400 animate-pulse"
+                  : connectionStatus === "connecting"
+                  ? "bg-amber-400 animate-pulse"
+                  : "bg-red-400 animate-pulse"
+              }`}
+            ></div>
+            <span>
+              {connectionStatus.charAt(0).toUpperCase() +
+                connectionStatus.slice(1)}
+              {isLoading && " (Processing...)"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Error Display in Game */}
+      {error && (
+        <div className="fixed top-20 left-6 z-50 max-w-md animate-slideInUp">
+          <div className="glass bg-red-500/20 border border-red-500/30 text-red-400 p-4 rounded-xl shadow-lg">
+            <div className="flex justify-between items-start">
+              <div className="flex items-start space-x-3">
+                <span className="text-lg">⚠️</span>
+                <p className="text-sm font-medium">{error}</p>
+              </div>
+              <button
+                onClick={clearError}
+                className="ml-4 text-red-400 hover:text-red-300 text-lg transition-colors"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Game Controls */}
+      <div className="absolute top-6 right-6 z-50 flex gap-3">
+        {!gameState.isStarted && gameState.players.length >= 2 && (
+          <button
+            onClick={handleStartGame}
+            disabled={isLoading}
+            className="btn-modern bg-gradient-to-r from-green-500 to-green-600 hover:from-green-400 hover:to-green-500 disabled:from-gray-500 disabled:to-gray-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 disabled:transform-none border border-green-400/30"
+          >
+            <span className="flex items-center">
+              <span className="mr-2">🚀</span>
+              Start Game
+            </span>
+          </button>
+        )}
+
+        {/* Leave Game Button */}
+        <button
+          onClick={handleLeaveGame}
+          disabled={isLoading}
+          className="btn-modern bg-gradient-to-r from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 disabled:from-gray-500 disabled:to-gray-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 disabled:transform-none border border-red-400/30"
         >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          <span className="flex items-center">
+            <span className="mr-2">🚪</span>
+            Leave Game
+          </span>
+        </button>
+      </div>
     </div>
   );
 }
