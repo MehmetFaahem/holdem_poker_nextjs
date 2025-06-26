@@ -17,11 +17,19 @@ export function initSocketIO(httpServer: HTTPServer) {
     cors: {
       origin:
         process.env.NODE_ENV === "production"
-          ? process.env.NEXT_PUBLIC_APP_URL || "https://yourdomain.com"
-          : "http://localhost:3000",
+          ? [
+              process.env.NEXT_PUBLIC_APP_URL,
+              process.env.VERCEL_URL
+                ? `https://${process.env.VERCEL_URL}`
+                : undefined,
+              "https://yourdomain.com", // fallback
+            ].filter((url): url is string => Boolean(url))
+          : ["http://localhost:3000", "http://127.0.0.1:3000"],
       methods: ["GET", "POST"],
+      credentials: true,
     },
     path: "/api/socket",
+    allowEIO3: true,
   });
 
   // Socket event handlers

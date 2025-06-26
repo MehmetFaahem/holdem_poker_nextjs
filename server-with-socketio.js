@@ -4,8 +4,10 @@ const next = require("next");
 const { initSocketIO } = require("./socket-lib");
 
 const dev = process.env.NODE_ENV !== "production";
-const hostname = "localhost";
+const hostname = process.env.HOSTNAME || "localhost";
 const port = process.env.PORT || 3000;
+
+console.log(`Starting server in ${dev ? "development" : "production"} mode...`);
 
 // Create Next.js app
 const app = next({ dev, hostname, port });

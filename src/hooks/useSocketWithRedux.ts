@@ -25,7 +25,13 @@ export const useSocketWithRedux = () => {
   useEffect(() => {
     dispatch(setConnectionStatus("connecting"));
 
-    socketRef.current = io("http://localhost:3000", {
+    // Determine the correct URL for Socket.IO connection
+    const socketUrl =
+      process.env.NODE_ENV === "production"
+        ? window.location.origin // Use current domain in production
+        : "http://localhost:3000"; // Use localhost in development
+
+    socketRef.current = io(socketUrl, {
       path: "/api/socket",
       transports: ["websocket"],
       timeout: 5000,
