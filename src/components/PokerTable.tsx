@@ -142,7 +142,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
       <div className="absolute inset-0 flex items-center justify-center p-4 md:p-8">
         <div className="relative w-full max-w-6xl h-full max-h-[800px] min-h-[600px]">
           {/* Poker Table */}
-          <div className="relative w-full h-full">
+          <div className="relative w-full h-full sm:h-[700px]">
             {/* Table Surface - Oval Shape */}
             <div className="absolute inset-4 md:inset-8 bg-gradient-to-br from-green-600 via-green-700 to-green-800 rounded-full shadow-2xl border-4 md:border-8 border-yellow-600">
               {/* Inner felt with border */}
@@ -204,45 +204,48 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 {/* Top Row - Positions 0, 1 */}
                 {renderPlayerSeat(
                   0,
-                  "top-2 md:top-[-100px] left-[40%] transform -translate-x-1/2"
+                  "top-[-50px] md:top-[-100px] left-[40%] transform -translate-x-1/2"
                 )}
                 {renderPlayerSeat(
                   1,
-                  "top-2 md:top-[-100px] left-1/2 transform -translate-x-1/2 translate-x-12 md:translate-x-16"
+                  "top-[-50px] md:top-[-100px] left-1/2 transform -translate-x-1/2 translate-x-12 md:translate-x-16"
                 )}
 
                 {/* Top-Right - Position 2 */}
-                {renderPlayerSeat(2, "top-8 md:top-12 right-4 md:right-8")}
+                {renderPlayerSeat(2, "top-[60px] md:top-12 right-4 md:right-8")}
 
                 {/* Middle-Right - Position 3 */}
                 {renderPlayerSeat(
                   3,
-                  "top-1/2 right-2 md:right-4 transform -translate-y-1/2"
+                  "top-[50%] right-2 md:right-4 transform -translate-y-1/2"
                 )}
 
                 {/* Bottom-Right - Position 4 */}
                 {renderPlayerSeat(
                   4,
-                  "bottom-8 md:bottom-12 right-4 md:right-8"
+                  "bottom-[160px] md:bottom-12 right-4 md:right-8"
                 )}
 
                 {/* Bottom Row - Positions 5, 6 */}
                 {renderPlayerSeat(
                   5,
-                  "bottom-2 md:bottom-4 left-[40%] transform -translate-x-1/2 -translate-x-12 md:-translate-x-16"
+                  "bottom-[160px] md:bottom-4 left-[70%] transform -translate-x-1/2 -translate-x-12 md:-translate-x-16"
                 )}
                 {renderPlayerSeat(
                   6,
-                  "bottom-2 md:bottom-4 left-1/2 transform -translate-x-1/2 translate-x-12 md:translate-x-16"
+                  "bottom-[160px] md:bottom-4 left-[20%] transform -translate-x-1/2 translate-x-12 md:translate-x-16"
                 )}
 
                 {/* Bottom-Left - Position 7 */}
-                {renderPlayerSeat(7, "bottom-8 md:bottom-12 left-4 md:left-8")}
+                {renderPlayerSeat(
+                  7,
+                  "bottom-[160px] md:bottom-12 left-4 md:left-8"
+                )}
 
                 {/* Middle-Left - Position 8 */}
                 {renderPlayerSeat(
                   8,
-                  "top-1/2 left-2 md:left-4 transform -translate-y-1/2"
+                  "top-[50%] left-2 md:left-4 transform -translate-y-1/2"
                 )}
 
                 {/* Top-Left - Position 9 */}

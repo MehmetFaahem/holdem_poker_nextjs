@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { GameState, Player } from "@/types/poker";
+import { GameState, Player, ChatMessage, ChatState } from "@/types/poker";
 
 interface PlayerAction {
   playerId: string;
@@ -15,6 +15,7 @@ interface GameStateSlice {
   error: string | null;
   isLoading: boolean;
   recentActions: PlayerAction[];
+  chat: ChatState;
 }
 
 const initialState: GameStateSlice = {
@@ -24,6 +25,11 @@ const initialState: GameStateSlice = {
   error: null,
   isLoading: false,
   recentActions: [],
+  chat: {
+    messages: [],
+    isOpen: false,
+    unreadCount: 0,
+  },
 };
 
 const gameSlice = createSlice({
@@ -212,6 +218,36 @@ const gameSlice = createSlice({
       );
     },
 
+    // Chat management
+    addChatMessage: (state, action: PayloadAction<ChatMessage>) => {
+      state.chat.messages.push(action.payload);
+      // Increment unread count if chat is closed
+      if (!state.chat.isOpen) {
+        state.chat.unreadCount += 1;
+      }
+    },
+
+    toggleChat: (state) => {
+      state.chat.isOpen = !state.chat.isOpen;
+      // Clear unread count when opening chat
+      if (state.chat.isOpen) {
+        state.chat.unreadCount = 0;
+      }
+    },
+
+    closeChat: (state) => {
+      state.chat.isOpen = false;
+    },
+
+    clearUnreadCount: (state) => {
+      state.chat.unreadCount = 0;
+    },
+
+    clearChatMessages: (state) => {
+      state.chat.messages = [];
+      state.chat.unreadCount = 0;
+    },
+
     // Reset state
     resetGame: (state) => {
       state.gameState = null;
@@ -219,6 +255,11 @@ const gameSlice = createSlice({
       state.error = null;
       state.isLoading = false;
       state.recentActions = [];
+      state.chat = {
+        messages: [],
+        isOpen: false,
+        unreadCount: 0,
+      };
     },
   },
 });
@@ -237,6 +278,11 @@ export const {
   addActionBadge,
   removeActionBadge,
   clearExpiredActions,
+  addChatMessage,
+  toggleChat,
+  closeChat,
+  clearUnreadCount,
+  clearChatMessages,
   resetGame,
 } = gameSlice.actions;
 

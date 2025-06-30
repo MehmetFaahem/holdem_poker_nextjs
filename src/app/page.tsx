@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { useSocketWithRedux } from "@/hooks/useSocketWithRedux";
 import { GameLobby } from "@/components/GameLobby";
 import { PokerTable } from "@/components/PokerTable";
+import { ChatIcon } from "@/components/ChatIcon";
+import { ChatWindow } from "@/components/ChatWindow";
 import { useConfirmationModal } from "@/contexts/ConfirmationModalContext";
+import { useAppDispatch } from "@/hooks/useAppSelector";
+import { toggleChat, closeChat } from "@/store/gameSlice";
 import type { StakeData } from "@/components/StakeSelection";
 
 export default function Home() {
@@ -13,14 +17,17 @@ export default function Home() {
     currentPlayer,
     connectionStatus,
     isLoading,
+    chat,
     joinGame,
     joinGameWithStakes,
     leaveGame,
     startGame,
     playerAction,
+    sendChatMessage,
   } = useSocketWithRedux();
 
   const { showConfirmation } = useConfirmationModal();
+  const dispatch = useAppDispatch();
 
   const [gameId, setGameId] = useState<string | null>(null);
   const [isInGame, setIsInGame] = useState(false);
@@ -143,6 +150,22 @@ export default function Home() {
       }
     } else {
       console.log("No gameId available in either gameId state or gameState.id");
+    }
+  };
+
+  // Chat functions
+  const handleToggleChat = () => {
+    dispatch(toggleChat());
+  };
+
+  const handleCloseChat = () => {
+    dispatch(closeChat());
+  };
+
+  const handleSendChatMessage = (message: string) => {
+    const actualGameId = gameId || gameState?.id;
+    if (actualGameId) {
+      sendChatMessage(actualGameId, message);
     }
   };
 
@@ -276,6 +299,24 @@ export default function Home() {
           </span>
         </button>
       </div>
+
+      {/* Chat Components - Only show when game is started */}
+      {gameState.isStarted && (
+        <>
+          <ChatIcon
+            isOpen={chat.isOpen}
+            unreadCount={chat.unreadCount}
+            onClick={handleToggleChat}
+          />
+          <ChatWindow
+            isOpen={chat.isOpen}
+            messages={chat.messages}
+            currentPlayerId={currentPlayer?.id || null}
+            onSendMessage={handleSendChatMessage}
+            onClose={handleCloseChat}
+          />
+        </>
+      )}
     </div>
   );
 }

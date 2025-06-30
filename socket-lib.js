@@ -1,5 +1,250 @@
 const { Server: SocketIOServer } = require("socket.io");
 
+// Import poker hand evaluation functions (we'll implement these as JS versions)
+function getCardValue(rank) {
+  const values = {
+    2: 2,
+    3: 3,
+    4: 4,
+    5: 5,
+    6: 6,
+    7: 7,
+    8: 8,
+    9: 9,
+    10: 10,
+    jack: 11,
+    queen: 12,
+    king: 13,
+    ace: 14,
+  };
+  return values[rank];
+}
+
+function evaluatePokerHand(cards) {
+  if (cards.length < 5) {
+    throw new Error("Need at least 5 cards to evaluate hand");
+  }
+
+  // Generate all possible 5-card combinations
+  const combinations = getCombinations(cards, 5);
+  let bestHand = null;
+
+  for (const combo of combinations) {
+    const hand = evaluateFiveCardHand(combo);
+    if (!bestHand || hand.value > bestHand.value) {
+      bestHand = hand;
+    }
+  }
+
+  return bestHand;
+}
+
+function getCombinations(arr, k) {
+  if (k === 0) return [[]];
+  if (k > arr.length) return [];
+
+  const first = arr[0];
+  const rest = arr.slice(1);
+
+  const withFirst = getCombinations(rest, k - 1).map((combo) => [
+    first,
+    ...combo,
+  ]);
+  const withoutFirst = getCombinations(rest, k);
+
+  return [...withFirst, ...withoutFirst];
+}
+
+function evaluateFiveCardHand(cards) {
+  const sortedCards = cards.sort(
+    (a, b) => getCardValue(b.rank) - getCardValue(a.rank)
+  );
+  const isFlush = cards.every((card) => card.suit === cards[0].suit);
+  const values = sortedCards.map((card) => getCardValue(card.rank));
+  const isStraight = checkStraight(values);
+
+  // Count ranks
+  const rankCounts = {};
+  cards.forEach((card) => {
+    rankCounts[card.rank] = (rankCounts[card.rank] || 0) + 1;
+  });
+
+  const counts = Object.values(rankCounts).sort((a, b) => b - a);
+
+  // Determine hand rank
+  if (isFlush && isStraight) {
+    if (values[0] === 14 && values[1] === 13) {
+      return {
+        rank: "royal-flush",
+        description: "Royal Flush",
+        value: 900000 + values[0],
+      };
+    }
+    return {
+      rank: "straight-flush",
+      description: "Straight Flush",
+      value: 800000 + values[0],
+    };
+  }
+
+  if (counts[0] === 4) {
+    return {
+      rank: "four-of-a-kind",
+      description: "Four of a Kind",
+      value: 700000 + getQuadValue(rankCounts),
+    };
+  }
+
+  if (counts[0] === 3 && counts[1] === 2) {
+    return {
+      rank: "full-house",
+      description: "Full House",
+      value: 600000 + getFullHouseValue(rankCounts),
+    };
+  }
+
+  if (isFlush) {
+    return {
+      rank: "flush",
+      description: "Flush",
+      value: 500000 + getHighCardValue(values),
+    };
+  }
+
+  if (isStraight) {
+    return {
+      rank: "straight",
+      description: "Straight",
+      value: 400000 + values[0],
+    };
+  }
+
+  if (counts[0] === 3) {
+    return {
+      rank: "three-of-a-kind",
+      description: "Three of a Kind",
+      value: 300000 + getTripValue(rankCounts),
+    };
+  }
+
+  if (counts[0] === 2 && counts[1] === 2) {
+    return {
+      rank: "two-pair",
+      description: "Two Pair",
+      value: 200000 + getTwoPairValue(rankCounts),
+    };
+  }
+
+  if (counts[0] === 2) {
+    return {
+      rank: "pair",
+      description: "Pair",
+      value: 100000 + getPairValue(rankCounts),
+    };
+  }
+
+  return {
+    rank: "high-card",
+    description: "High Card",
+    value: getHighCardValue(values),
+  };
+}
+
+function checkStraight(values) {
+  // Check for regular straight
+  for (let i = 0; i < values.length - 1; i++) {
+    if (values[i] - values[i + 1] !== 1) {
+      break;
+    }
+    if (i === values.length - 2) return true;
+  }
+
+  // Check for A-2-3-4-5 straight (wheel)
+  if (
+    values[0] === 14 &&
+    values[1] === 5 &&
+    values[2] === 4 &&
+    values[3] === 3 &&
+    values[4] === 2
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function getQuadValue(rankCounts) {
+  for (const [rank, count] of Object.entries(rankCounts)) {
+    if (count === 4) {
+      return getCardValue(rank) * 1000;
+    }
+  }
+  return 0;
+}
+
+function getFullHouseValue(rankCounts) {
+  let tripValue = 0;
+  let pairValue = 0;
+
+  for (const [rank, count] of Object.entries(rankCounts)) {
+    if (count === 3) tripValue = getCardValue(rank) * 1000;
+    if (count === 2) pairValue = getCardValue(rank);
+  }
+
+  return tripValue + pairValue;
+}
+
+function getTripValue(rankCounts) {
+  for (const [rank, count] of Object.entries(rankCounts)) {
+    if (count === 3) {
+      return getCardValue(rank) * 1000;
+    }
+  }
+  return 0;
+}
+
+function getTwoPairValue(rankCounts) {
+  const pairs = [];
+  let kicker = 0;
+
+  for (const [rank, count] of Object.entries(rankCounts)) {
+    if (count === 2) {
+      pairs.push(getCardValue(rank));
+    } else {
+      kicker = getCardValue(rank);
+    }
+  }
+
+  pairs.sort((a, b) => b - a);
+  return pairs[0] * 1000 + pairs[1] * 100 + kicker;
+}
+
+function getPairValue(rankCounts) {
+  let pairValue = 0;
+  const kickers = [];
+
+  for (const [rank, count] of Object.entries(rankCounts)) {
+    if (count === 2) {
+      pairValue = getCardValue(rank) * 1000;
+    } else {
+      kickers.push(getCardValue(rank));
+    }
+  }
+
+  kickers.sort((a, b) => b - a);
+  return pairValue + kickers[0] * 100 + kickers[1] * 10 + kickers[2];
+}
+
+function getHighCardValue(values) {
+  return (
+    values[0] * 10000 +
+    values[1] * 1000 +
+    values[2] * 100 +
+    values[3] * 10 +
+    values[4]
+  );
+}
+
 // Game management
 const games = new Map();
 const playerSockets = new Map();
@@ -53,6 +298,13 @@ function initSocketIO(httpServer) {
     socket.on("player-action", ({ gameId, playerId, action, amount }) => {
       handlePlayerAction(socket, gameId, playerId, action, amount);
     });
+
+    socket.on(
+      "send-chat-message",
+      ({ gameId, playerId, playerName, message }) => {
+        handleChatMessage(socket, gameId, playerId, playerName, message);
+      }
+    );
 
     socket.on("disconnect", () => {
       handleDisconnect(socket);
@@ -119,6 +371,7 @@ function handleJoinGame(socket, gameId, playerName) {
     isFolded: false,
     isAllIn: false,
     hasActedThisRound: false,
+    isProcessingAction: false, // Prevent multiple actions per turn
     position: game.players.length,
   };
 
@@ -216,6 +469,7 @@ function handleJoinGameWithStakes(socket, gameId, playerName, stakeData) {
     isFolded: false,
     isAllIn: false,
     hasActedThisRound: false,
+    isProcessingAction: false, // Prevent multiple actions per turn
     position: game.players.length,
   };
 
@@ -256,7 +510,7 @@ function handleLeaveGame(socket, gameId, playerId) {
 
       const activePlayers = game.players.filter((p) => !p.isFolded);
       if (activePlayers.length === 1) {
-        endHand(game, activePlayers[0]);
+        endHand(game, activePlayers[0], "Winner (Opponent Left)");
       } else if (activePlayers.length === 0) {
         game.isStarted = false;
         game.gamePhase = "waiting";
@@ -300,6 +554,7 @@ function handleStartGame(socket, gameId) {
     player.isAllIn = false;
     player.isActive = true;
     player.hasActedThisRound = false;
+    player.isProcessingAction = false; // Reset action lock for new hand
     player.position = index;
   });
 
@@ -423,7 +678,7 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
   if (activePlayers.length < 2) {
     console.log(`Only ${activePlayers.length} active players, ending hand`);
     if (activePlayers.length === 1) {
-      endHand(game, activePlayers[0]);
+      endHand(game, activePlayers[0], "Winner (All Others Folded)");
       io?.to(gameId).emit("game-updated", game);
     }
     return;
@@ -435,22 +690,65 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
     return;
   }
 
+  // === STRICT ONE ACTION PER TURN ENFORCEMENT ===
+
+  // 1. Validate it's the player's turn
   const currentPlayer = game.players[game.currentPlayerIndex];
   if (!currentPlayer || currentPlayer.id !== playerId) {
+    console.log(
+      `❌ ACTION REJECTED: ${player.name} tried to act but it's ${
+        currentPlayer?.name || "unknown"
+      }'s turn`
+    );
     socket.emit("error", { message: "Not your turn" });
     return;
   }
 
+  // 2. Check if player can act (not folded/all-in)
   if (player.isFolded || player.isAllIn) {
+    console.log(
+      `❌ ACTION REJECTED: ${player.name} cannot act (folded: ${player.isFolded}, all-in: ${player.isAllIn})`
+    );
     socket.emit("error", { message: "You cannot act" });
     return;
   }
 
+  // 3. CRITICAL: Check if player has already acted this round (prevent chaining)
   if (player.hasActedThisRound) {
-    console.log(`ERROR: Player ${player.name} has already acted this round!`);
+    console.log(
+      `❌ ACTION REJECTED: ${player.name} has already acted this round (${game.gamePhase} phase)`
+    );
     socket.emit("error", { message: "You have already acted this round" });
     return;
   }
+
+  // 4. Add action processing lock to prevent race conditions
+  if (player.isProcessingAction) {
+    console.log(
+      `❌ ACTION REJECTED: ${player.name} action already being processed (race condition prevented)`
+    );
+    socket.emit("error", { message: "Action already being processed" });
+    return;
+  }
+
+  // 5. Validate action type
+  const validActions = ["fold", "check", "call", "bet", "raise", "all-in"];
+  if (!validActions.includes(action)) {
+    console.log(
+      `❌ ACTION REJECTED: ${player.name} attempted invalid action: ${action}`
+    );
+    socket.emit("error", { message: "Invalid action type" });
+    return;
+  }
+
+  // 6. Lock action processing to prevent concurrent actions
+  player.isProcessingAction = true;
+
+  console.log(
+    `✅ PROCESSING ACTION: ${player.name} -> ${action}${
+      amount ? ` (${amount})` : ""
+    } in ${game.gamePhase} phase`
+  );
 
   console.log(`=== PLAYER ACTION DEBUG ===`);
   console.log(`Player: ${player.name}, Action: ${action}, Amount: ${amount}`);
@@ -487,6 +785,7 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
 
     case "check":
       if (game.currentBet !== player.inPotThisRound) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", { message: "Cannot check, must call or fold" });
         return;
       }
@@ -494,16 +793,19 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
 
     case "bet":
       if (game.currentBet !== 0) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", {
           message: "Cannot bet, there's already a bet. Use raise instead.",
         });
         return;
       }
       if (!amount || amount < game.bigBlind) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", { message: `Minimum bet is ${game.bigBlind}` });
         return;
       }
       if (amount > player.chips) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", { message: "Not enough chips" });
         return;
       }
@@ -515,11 +817,25 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
       game.lastRaiseAmount = amount;
       game.minimumRaise = Math.max(game.lastRaiseAmount, game.bigBlind);
       if (player.chips === 0) player.isAllIn = true;
+
+      // Reset hasActedThisRound for all other players since this opens betting
+      console.log(
+        `${player.name} made a bet - resetting hasActedThisRound for other players`
+      );
+      game.players.forEach((p) => {
+        if (p.id !== playerId && !p.isFolded && !p.isAllIn) {
+          console.log(
+            `Resetting hasActedThisRound for ${p.name} (was: ${p.hasActedThisRound})`
+          );
+          p.hasActedThisRound = false;
+        }
+      });
       break;
 
     case "call":
       const callAmount = game.currentBet - player.inPotThisRound;
       if (callAmount <= 0) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", { message: "Nothing to call" });
         return;
       }
@@ -535,17 +851,20 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
     case "raise":
       const currentCallAmount = game.currentBet - player.inPotThisRound;
       if (!amount) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", { message: "Raise amount required" });
         return;
       }
       const totalRoundContribution = currentCallAmount + amount;
       if (amount < game.minimumRaise) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", {
           message: `Minimum raise is ${game.minimumRaise}`,
         });
         return;
       }
       if (totalRoundContribution > player.chips) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", { message: "Not enough chips" });
         return;
       }
@@ -557,6 +876,19 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
       game.lastRaiseAmount = amount;
       game.minimumRaise = Math.max(amount, game.bigBlind);
       if (player.chips === 0) player.isAllIn = true;
+
+      // Reset hasActedThisRound for all other players since this is a raise
+      console.log(
+        `${player.name} raised - resetting hasActedThisRound for other players`
+      );
+      game.players.forEach((p) => {
+        if (p.id !== playerId && !p.isFolded && !p.isAllIn) {
+          console.log(
+            `Resetting hasActedThisRound for ${p.name} (was: ${p.hasActedThisRound})`
+          );
+          p.hasActedThisRound = false;
+        }
+      });
       break;
 
     case "all-in":
@@ -572,15 +904,47 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
         game.currentBet = player.inPotThisRound;
         game.lastRaiseAmount = raiseAmount;
         game.minimumRaise = Math.max(raiseAmount, game.bigBlind);
+
+        // Reset hasActedThisRound for all other players since this all-in acts as a raise
+        console.log(
+          `${player.name} went all-in with a raise - resetting hasActedThisRound for other players`
+        );
+        game.players.forEach((p) => {
+          if (p.id !== playerId && !p.isFolded && !p.isAllIn) {
+            console.log(
+              `Resetting hasActedThisRound for ${p.name} (was: ${p.hasActedThisRound})`
+            );
+            p.hasActedThisRound = false;
+          }
+        });
       }
       break;
 
     default:
+      // This should never happen due to validation above, but safety check
+      console.log(
+        `❌ UNEXPECTED: Invalid action ${action} reached switch statement`
+      );
+      player.isProcessingAction = false; // Release lock
       socket.emit("error", { message: "Invalid action" });
       return;
   }
 
+  // === ACTION COMPLETED SUCCESSFULLY ===
+
+  // Mark player as having acted this round (CRITICAL for one-action-per-turn)
   player.hasActedThisRound = true;
+
+  // Release action processing lock
+  player.isProcessingAction = false;
+
+  // Log successful action completion
+  console.log(
+    `✅ ACTION COMPLETED: ${player.name} successfully performed ${action} in ${game.gamePhase} phase`
+  );
+  console.log(
+    `🔒 TURN LOCKED: ${player.name} cannot act again until next betting round`
+  );
 
   console.log(`=== AFTER ACTION DEBUG ===`);
   console.log(
@@ -618,12 +982,16 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
   });
   console.log(`🚀 SERVER: Action event emitted successfully`);
 
+  // Check if betting round is complete
   const roundComplete = checkBettingRoundComplete(game);
   if (roundComplete) {
+    console.log(`🏁 BETTING ROUND COMPLETE: Moving to next phase`);
     io?.to(gameId).emit("game-updated", game);
     return;
   }
 
+  // Move to next player immediately - turn ends here
+  console.log(`➡️ TURN PASSING: Moving from ${player.name} to next player`);
   moveToNextPlayer(game);
   io?.to(gameId).emit("game-updated", game);
 }
@@ -661,7 +1029,7 @@ function checkBettingRoundComplete(game) {
   if (activePlayers.length <= 1) {
     if (activePlayers.length === 1) {
       console.log(`Only one active player: ${activePlayers[0].name} wins`);
-      endHand(game, activePlayers[0]);
+      endHand(game, activePlayers[0], "Winner (All Others Folded)");
     }
     return true;
   }
@@ -760,7 +1128,38 @@ function checkBettingRoundComplete(game) {
     }
   }
 
-  console.log("Round NOT complete - continuing");
+  // 🔍 SPECIAL CHECK: Raise-Call scenario (Player A raises, Player B calls)
+  if (playersWhoCanAct.length === 2 && allBetsEqual) {
+    console.log("🔍 RAISE-CALL CHECK: Two players with equal bets");
+    const playersNotActed = playersWhoCanAct.filter(
+      (p) => !p.hasActedThisRound
+    );
+    if (playersNotActed.length === 0) {
+      console.log(
+        "✅ RAISE-CALL COMPLETE: Both players have acted with equal bets, advancing phase"
+      );
+      advanceGamePhase(game);
+      return true;
+    } else {
+      console.log(
+        `🔍 RAISE-CALL PENDING: ${
+          playersNotActed.length
+        } players still need to act: ${playersNotActed
+          .map((p) => p.name)
+          .join(", ")}`
+      );
+    }
+  }
+
+  if (allPlayersActed && allBetsEqual) {
+    console.log(
+      "✅ ROUND COMPLETE - All players acted and all bets equal, advancing to next phase"
+    );
+    advanceGamePhase(game);
+    return true;
+  }
+
+  console.log("❌ ROUND NOT COMPLETE - Continuing betting");
   return false;
 }
 
@@ -768,6 +1167,7 @@ function advanceGamePhase(game) {
   game.players.forEach((p) => {
     p.inPotThisRound = 0;
     p.hasActedThisRound = false;
+    p.isProcessingAction = false; // Reset action lock for new betting round
   });
   game.currentBet = 0;
   game.minimumRaise = game.bigBlind;
@@ -865,18 +1265,123 @@ function createShuffledDeck() {
 function advanceToShowdown(game) {
   game.gamePhase = "showdown";
   const activePlayers = game.players.filter((p) => !p.isFolded);
-  if (activePlayers.length > 0) {
-    endHand(game, activePlayers[0]);
+
+  if (activePlayers.length === 0) {
+    console.log("No active players for showdown");
+    return;
+  }
+
+  if (activePlayers.length === 1) {
+    // Only one player left - they win without showing cards
+    const winner = activePlayers[0];
+    console.log(`${winner.name} wins by default (all others folded)`);
+    endHand(game, winner, "Winner by Default");
+    return;
+  }
+
+  // Multiple players - evaluate hands
+  console.log(
+    `🃏 SHOWDOWN: Evaluating hands for ${activePlayers.length} players`
+  );
+
+  const playerHands = [];
+
+  for (const player of activePlayers) {
+    try {
+      // Combine hole cards with community cards
+      const allCards = [...player.holeCards, ...game.communityCards];
+      const handResult = evaluatePokerHand(allCards);
+
+      playerHands.push({
+        player: player,
+        hand: handResult,
+        cards: allCards,
+      });
+
+      console.log(
+        `${player.name}: ${handResult.description} (value: ${handResult.value})`
+      );
+    } catch (error) {
+      console.error(`Error evaluating hand for ${player.name}:`, error);
+      // Fallback to high card if evaluation fails
+      playerHands.push({
+        player: player,
+        hand: { description: "High Card", value: 0 },
+        cards: [...player.holeCards, ...game.communityCards],
+      });
+    }
+  }
+
+  // Sort by hand value (highest first)
+  playerHands.sort((a, b) => b.hand.value - a.hand.value);
+
+  // Find all winners (in case of tie)
+  const bestValue = playerHands[0].hand.value;
+  const winners = playerHands.filter((ph) => ph.hand.value === bestValue);
+
+  if (winners.length === 1) {
+    // Single winner
+    const winner = winners[0];
+    console.log(
+      `🏆 WINNER: ${winner.player.name} with ${winner.hand.description}`
+    );
+    endHand(game, winner.player, winner.hand.description);
+  } else {
+    // Multiple winners (tie) - split pot
+    console.log(
+      `🤝 TIE: ${winners.length} players tied with ${winners[0].hand.description}`
+    );
+    endHandWithTie(game, winners);
   }
 }
 
-function endHand(game, winner) {
+function endHand(game, winner, winningHand) {
   winner.chips += game.pot;
   game.gamePhase = "ended";
-  game.winners = [{ playerId: winner.id, amount: game.pot, hand: "Winner" }];
+  game.winners = [
+    {
+      playerId: winner.id,
+      amount: game.pot,
+      hand: winningHand || "Winner",
+    },
+  ];
   game.nextHandCountdown = 10;
 
-  console.log(`Hand ended. Winner: ${winner.name}, Amount: ${game.pot}`);
+  console.log(
+    `Hand ended. Winner: ${winner.name}, Amount: ${game.pot}, Hand: ${winningHand}`
+  );
+  io?.to(game.id).emit("game-updated", game);
+  startHandCountdown(game);
+}
+
+function endHandWithTie(game, winners) {
+  const potShare = Math.floor(game.pot / winners.length);
+  const remainder = game.pot % winners.length;
+
+  game.gamePhase = "ended";
+  game.winners = [];
+
+  console.log(
+    `💰 SPLITTING POT: ${game.pot} chips among ${winners.length} players (${potShare} each)`
+  );
+
+  winners.forEach((winner, index) => {
+    // First player gets any remainder chips
+    const amount = potShare + (index === 0 ? remainder : 0);
+    winner.player.chips += amount;
+
+    game.winners.push({
+      playerId: winner.player.id,
+      amount: amount,
+      hand: winner.hand.description,
+    });
+
+    console.log(
+      `${winner.player.name} gets ${amount} chips with ${winner.hand.description}`
+    );
+  });
+
+  game.nextHandCountdown = 10;
   io?.to(game.id).emit("game-updated", game);
   startHandCountdown(game);
 }
@@ -922,6 +1427,7 @@ function startNewHand(game) {
     player.isAllIn = false;
     player.isActive = true;
     player.hasActedThisRound = false;
+    player.isProcessingAction = false; // Reset action lock for new hand
 
     // 🚨 CHIP VALIDATION: Ensure no negative chips
     if (player.chips < 0) {
@@ -989,6 +1495,36 @@ function startNewHand(game) {
   }
 
   io?.to(game.id).emit("game-updated", game);
+}
+
+function handleChatMessage(socket, gameId, playerId, playerName, message) {
+  const game = games.get(gameId);
+  if (!game) {
+    socket.emit("error", { message: "Game not found" });
+    return;
+  }
+
+  // Verify player is in the game
+  const player = game.players.find((p) => p.id === playerId);
+  if (!player) {
+    socket.emit("error", { message: "Player not in game" });
+    return;
+  }
+
+  // Create chat message
+  const chatMessage = {
+    id: `${Date.now()}-${playerId}`,
+    playerId,
+    playerName,
+    message: message.trim(),
+    timestamp: Date.now(),
+    type: "message",
+  };
+
+  console.log(`💬 CHAT: ${playerName} in game ${gameId}: ${message.trim()}`);
+
+  // Emit to all players in the game room
+  io?.to(gameId).emit("chat-message", chatMessage);
 }
 
 function handleDisconnect(socket) {

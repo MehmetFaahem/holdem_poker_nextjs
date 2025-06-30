@@ -85,3 +85,18 @@ export interface HandResult {
   description: string;
   value: number;
 }
+
+export interface ChatMessage {
+  id: string;
+  playerId: string;
+  playerName: string;
+  message: string;
+  timestamp: number;
+  type: "message" | "system";
+}
+
+export interface ChatState {
+  messages: ChatMessage[];
+  isOpen: boolean;
+  unreadCount: number;
+}

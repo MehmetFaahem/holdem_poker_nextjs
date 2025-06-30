@@ -12,6 +12,7 @@ import {
   clearError,
   resetGame,
   addActionBadge,
+  addChatMessage,
 } from "@/store/gameSlice";
 import { GameState, Player } from "@/types/poker";
 import { showToast } from "@/utils/toast";
@@ -26,7 +27,7 @@ interface StakeData {
 
 export const useSocketWithRedux = () => {
   const dispatch = useAppDispatch();
-  const { gameState, currentPlayer, connectionStatus, error, isLoading } =
+  const { gameState, currentPlayer, connectionStatus, error, isLoading, chat } =
     useAppSelector((state) => state.game);
   const socketRef = useRef<Socket | null>(null);
 
@@ -131,6 +132,12 @@ export const useSocketWithRedux = () => {
         );
       }
     );
+
+    // Listen for chat messages
+    socket.on("chat-message", (chatMessage) => {
+      console.log("💬 CHAT MESSAGE RECEIVED:", chatMessage);
+      dispatch(addChatMessage(chatMessage));
+    });
 
     // Cleanup on unmount
     return () => {
@@ -304,12 +311,40 @@ export const useSocketWithRedux = () => {
     [connectionStatus, gameState, currentPlayer, dispatch]
   );
 
+  // Send chat message function
+  const sendChatMessage = useCallback(
+    (gameId: string, message: string) => {
+      if (!socketRef.current || connectionStatus !== "connected") {
+        showToast.error("Not connected to server");
+        return;
+      }
+
+      if (!currentPlayer) {
+        showToast.error("Player not found");
+        return;
+      }
+
+      if (!message.trim()) {
+        return;
+      }
+
+      socketRef.current.emit("send-chat-message", {
+        gameId,
+        playerId: currentPlayer.id,
+        playerName: currentPlayer.name,
+        message: message.trim(),
+      });
+    },
+    [connectionStatus, currentPlayer]
+  );
+
   return {
     // State
     gameState,
     currentPlayer,
     connectionStatus,
     isLoading,
+    chat,
 
     // Actions
     joinGame,
@@ -317,5 +352,6 @@ export const useSocketWithRedux = () => {
     leaveGame,
     startGame,
     playerAction,
+    sendChatMessage,
   };
 };

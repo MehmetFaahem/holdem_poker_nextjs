@@ -40,6 +40,10 @@ export function initSocketIO(httpServer: HTTPServer) {
       handleJoinGame(socket, gameId, playerName);
     });
 
+    socket.on("join-game-with-stakes", ({ gameId, playerName, stakeData }) => {
+      handleJoinGameWithStakes(socket, gameId, playerName, stakeData);
+    });
+
     socket.on("leave-game", ({ gameId, playerId }) => {
       handleLeaveGame(socket, gameId, playerId);
     });
@@ -51,6 +55,13 @@ export function initSocketIO(httpServer: HTTPServer) {
     socket.on("player-action", ({ gameId, playerId, action, amount }) => {
       handlePlayerAction(socket, gameId, playerId, action, amount);
     });
+
+    socket.on(
+      "send-chat-message",
+      ({ gameId, playerId, playerName, message }) => {
+        handleChatMessage(socket, gameId, playerId, playerName, message);
+      }
+    );
 
     socket.on("disconnect", () => {
       handleDisconnect(socket);
@@ -114,6 +125,83 @@ function handleJoinGame(socket: Socket, gameId: string, playerName: string) {
     isFolded: false,
     isAllIn: false,
     hasActedThisRound: false,
+    isProcessingAction: false, // Prevent multiple actions per turn
+    position: game.players.length,
+  };
+
+  game.players.push(player);
+  playerSockets.set(playerId, socket.id);
+
+  socket.join(gameId);
+  socket.emit("player-joined", player);
+  io?.to(gameId).emit("game-updated", game);
+}
+
+function handleJoinGameWithStakes(
+  socket: Socket,
+  gameId: string,
+  playerName: string,
+  stakeData: any
+) {
+  if (!gameId || !playerName) {
+    socket.emit("error", { message: "Game ID and player name are required" });
+    return;
+  }
+
+  let game = games.get(gameId);
+
+  if (!game) {
+    // Create new game with custom stakes
+    game = {
+      id: gameId,
+      players: [],
+      communityCards: [],
+      pot: 0,
+      currentBet: 0,
+      minimumRaise: stakeData.minCall || 20,
+      dealerPosition: 0,
+      currentPlayerIndex: 0,
+      gamePhase: "waiting",
+      smallBlind: stakeData.minCall || 10,
+      bigBlind: stakeData.maxCall || 20,
+      maxPlayers: 10,
+      isStarted: false,
+      lastRaiseAmount: stakeData.minCall || 20,
+      roundStartPlayerIndex: 0,
+      nextHandCountdown: null,
+      countdownInterval: null,
+      stakeInfo: {
+        stakes: stakeData.stakes,
+        buyIn: stakeData.buyIn,
+        startingChips: stakeData.startingChips,
+      },
+    };
+    games.set(gameId, game);
+  }
+
+  if (game.players.length >= game.maxPlayers) {
+    socket.emit("error", { message: "Game is full" });
+    return;
+  }
+
+  if (game.isStarted) {
+    socket.emit("error", { message: "Game already started" });
+    return;
+  }
+
+  const playerId = socket.id;
+  const player = {
+    id: playerId,
+    name: playerName,
+    chips: stakeData.startingChips || 1000,
+    holeCards: [],
+    inPotThisRound: 0,
+    totalPotContribution: 0,
+    isActive: true,
+    isFolded: false,
+    isAllIn: false,
+    hasActedThisRound: false,
+    isProcessingAction: false, // Prevent multiple actions per turn
     position: game.players.length,
   };
 
@@ -198,6 +286,7 @@ function handleStartGame(socket: Socket, gameId: string) {
     player.isAllIn = false;
     player.isActive = true;
     player.hasActedThisRound = false;
+    player.isProcessingAction = false; // Reset action lock for new hand
     player.position = index;
   });
 
@@ -339,24 +428,65 @@ function handlePlayerAction(
     return;
   }
 
+  // === STRICT ONE ACTION PER TURN ENFORCEMENT ===
+
+  // 1. Validate it's the player's turn
   const currentPlayer = game.players[game.currentPlayerIndex];
   if (!currentPlayer || currentPlayer.id !== playerId) {
+    console.log(
+      `❌ ACTION REJECTED: ${player.name} tried to act but it's ${
+        currentPlayer?.name || "unknown"
+      }'s turn`
+    );
     socket.emit("error", { message: "Not your turn" });
     return;
   }
 
+  // 2. Check if player can act (not folded/all-in)
   if (player.isFolded || player.isAllIn) {
+    console.log(
+      `❌ ACTION REJECTED: ${player.name} cannot act (folded: ${player.isFolded}, all-in: ${player.isAllIn})`
+    );
     socket.emit("error", { message: "You cannot act" });
     return;
   }
 
+  // 3. CRITICAL: Check if player has already acted this round (prevent chaining)
   if (player.hasActedThisRound) {
-    console.log(`ERROR: Player ${player.name} has already acted this round!`);
+    console.log(
+      `❌ ACTION REJECTED: ${player.name} has already acted this round (${game.gamePhase} phase)`
+    );
     socket.emit("error", { message: "You have already acted this round" });
     return;
   }
 
-  console.log(`Player ${player.name} action: ${action}, amount: ${amount}`);
+  // 4. Add action processing lock to prevent race conditions
+  if (player.isProcessingAction) {
+    console.log(
+      `❌ ACTION REJECTED: ${player.name} action already being processed (race condition prevented)`
+    );
+    socket.emit("error", { message: "Action already being processed" });
+    return;
+  }
+
+  // 5. Validate action type
+  const validActions = ["fold", "check", "call", "bet", "raise", "all-in"];
+  if (!validActions.includes(action)) {
+    console.log(
+      `❌ ACTION REJECTED: ${player.name} attempted invalid action: ${action}`
+    );
+    socket.emit("error", { message: "Invalid action type" });
+    return;
+  }
+
+  // 6. Lock action processing to prevent concurrent actions
+  player.isProcessingAction = true;
+
+  console.log(
+    `✅ PROCESSING ACTION: ${player.name} -> ${action}${
+      amount ? ` (${amount})` : ""
+    } in ${game.gamePhase} phase`
+  );
 
   // Handle actions
   switch (action) {
@@ -367,6 +497,7 @@ function handlePlayerAction(
 
     case "check":
       if (game.currentBet !== player.inPotThisRound) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", { message: "Cannot check, must call or fold" });
         return;
       }
@@ -374,16 +505,19 @@ function handlePlayerAction(
 
     case "bet":
       if (game.currentBet !== 0) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", {
           message: "Cannot bet, there's already a bet. Use raise instead.",
         });
         return;
       }
       if (!amount || amount < game.bigBlind) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", { message: `Minimum bet is ${game.bigBlind}` });
         return;
       }
       if (amount > player.chips) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", { message: "Not enough chips" });
         return;
       }
@@ -395,11 +529,25 @@ function handlePlayerAction(
       game.lastRaiseAmount = amount;
       game.minimumRaise = Math.max(game.lastRaiseAmount, game.bigBlind);
       if (player.chips === 0) player.isAllIn = true;
+
+      // Reset hasActedThisRound for all other players since this opens betting
+      console.log(
+        `${player.name} made a bet - resetting hasActedThisRound for other players`
+      );
+      game.players.forEach((p: any) => {
+        if (p.id !== playerId && !p.isFolded && !p.isAllIn) {
+          console.log(
+            `Resetting hasActedThisRound for ${p.name} (was: ${p.hasActedThisRound})`
+          );
+          p.hasActedThisRound = false;
+        }
+      });
       break;
 
     case "call":
       const callAmount = game.currentBet - player.inPotThisRound;
       if (callAmount <= 0) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", { message: "Nothing to call" });
         return;
       }
@@ -414,17 +562,20 @@ function handlePlayerAction(
     case "raise":
       const currentCallAmount = game.currentBet - player.inPotThisRound;
       if (!amount) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", { message: "Raise amount required" });
         return;
       }
       const totalRoundContribution = currentCallAmount + amount;
       if (amount < game.minimumRaise) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", {
           message: `Minimum raise is ${game.minimumRaise}`,
         });
         return;
       }
       if (totalRoundContribution > player.chips) {
+        player.isProcessingAction = false; // Release lock on error
         socket.emit("error", { message: "Not enough chips" });
         return;
       }
@@ -436,6 +587,19 @@ function handlePlayerAction(
       game.lastRaiseAmount = amount;
       game.minimumRaise = Math.max(amount, game.bigBlind);
       if (player.chips === 0) player.isAllIn = true;
+
+      // Reset hasActedThisRound for all other players since this is a raise
+      console.log(
+        `${player.name} raised - resetting hasActedThisRound for other players`
+      );
+      game.players.forEach((p: any) => {
+        if (p.id !== playerId && !p.isFolded && !p.isAllIn) {
+          console.log(
+            `Resetting hasActedThisRound for ${p.name} (was: ${p.hasActedThisRound})`
+          );
+          p.hasActedThisRound = false;
+        }
+      });
       break;
 
     case "all-in":
@@ -450,22 +614,58 @@ function handlePlayerAction(
         game.currentBet = player.inPotThisRound;
         game.lastRaiseAmount = raiseAmount;
         game.minimumRaise = Math.max(raiseAmount, game.bigBlind);
+
+        // Reset hasActedThisRound for all other players since this all-in acts as a raise
+        console.log(
+          `${player.name} went all-in with a raise - resetting hasActedThisRound for other players`
+        );
+        game.players.forEach((p: any) => {
+          if (p.id !== playerId && !p.isFolded && !p.isAllIn) {
+            console.log(
+              `Resetting hasActedThisRound for ${p.name} (was: ${p.hasActedThisRound})`
+            );
+            p.hasActedThisRound = false;
+          }
+        });
       }
       break;
 
     default:
+      // This should never happen due to validation above, but safety check
+      console.log(
+        `❌ UNEXPECTED: Invalid action ${action} reached switch statement`
+      );
+      player.isProcessingAction = false; // Release lock
       socket.emit("error", { message: "Invalid action" });
       return;
   }
 
+  // === ACTION COMPLETED SUCCESSFULLY ===
+
+  // 7. Mark player as having acted this round (CRITICAL for one-action-per-turn)
   player.hasActedThisRound = true;
 
+  // 8. Release action processing lock
+  player.isProcessingAction = false;
+
+  // 9. Log successful action completion
+  console.log(
+    `✅ ACTION COMPLETED: ${player.name} successfully performed ${action} in ${game.gamePhase} phase`
+  );
+  console.log(
+    `🔒 TURN LOCKED: ${player.name} cannot act again until next betting round`
+  );
+
+  // 10. Check if betting round is complete
   const roundComplete = checkBettingRoundComplete(game);
   if (roundComplete) {
+    console.log(`🏁 BETTING ROUND COMPLETE: Moving to next phase`);
     io?.to(gameId).emit("game-updated", game);
     return;
   }
 
+  // 11. Move to next player immediately - turn ends here
+  console.log(`➡️ TURN PASSING: Moving from ${player.name} to next player`);
   moveToNextPlayer(game);
   io?.to(gameId).emit("game-updated", game);
 }
@@ -491,10 +691,17 @@ function moveToNextPlayer(game: any) {
 }
 
 function checkBettingRoundComplete(game: any) {
+  console.log(`=== BETTING ROUND COMPLETION CHECK ===`);
+  console.log(`Game phase: ${game.gamePhase}`);
+  console.log(`Current bet: ${game.currentBet}`);
+  console.log(`Pot: ${game.pot}`);
+
   const activePlayers = game.players.filter((p: any) => !p.isFolded);
+  console.log(`Active players: ${activePlayers.length}`);
 
   if (activePlayers.length <= 1) {
     if (activePlayers.length === 1) {
+      console.log(`Only one active player: ${activePlayers[0].name} wins`);
       endHand(game, activePlayers[0]);
     }
     return true;
@@ -504,17 +711,29 @@ function checkBettingRoundComplete(game: any) {
     (p: any) => !p.isFolded && !p.isAllIn
   );
 
+  console.log(`Players who can act: ${playersWhoCanAct.length}`);
+  playersWhoCanAct.forEach((p: any) => {
+    console.log(
+      `  ${p.name}: hasActed=${p.hasActedThisRound}, inPot=${p.inPotThisRound}, chips=${p.chips}`
+    );
+  });
+
   if (playersWhoCanAct.length === 0) {
+    console.log("All players folded or all-in, advancing phase");
     advanceGamePhase(game);
     return true;
   }
 
   if (playersWhoCanAct.length === 1) {
     const lastPlayer = playersWhoCanAct[0];
+    console.log(
+      `Only one player can act: ${lastPlayer.name}, hasActed=${lastPlayer.hasActedThisRound}, inPot=${lastPlayer.inPotThisRound}, currentBet=${game.currentBet}`
+    );
     if (
       lastPlayer.hasActedThisRound &&
       lastPlayer.inPotThisRound === game.currentBet
     ) {
+      console.log("Last player condition met, advancing phase");
       advanceGamePhase(game);
       return true;
     }
@@ -527,11 +746,59 @@ function checkBettingRoundComplete(game: any) {
     (p: any) => p.inPotThisRound === game.currentBet
   );
 
+  console.log(`All players acted: ${allPlayersActed}`);
+  console.log(`All bets equal: ${allBetsEqual}`);
+
+  if (!allBetsEqual) {
+    console.log("BET MISMATCH DETAILS:");
+    playersWhoCanAct.forEach((p: any) => {
+      console.log(
+        `  ${p.name}: inPotThisRound=${p.inPotThisRound} vs currentBet=${
+          game.currentBet
+        } (diff: ${p.inPotThisRound - game.currentBet})`
+      );
+    });
+  }
+
+  if (!allPlayersActed) {
+    console.log("PLAYER ACTION STATUS:");
+    playersWhoCanAct.forEach((p: any) => {
+      console.log(`  ${p.name}: hasActedThisRound=${p.hasActedThisRound}`);
+    });
+  }
+
+  // 🔍 SPECIAL CHECK: Raise-Call scenario (Player A raises, Player B calls)
+  if (playersWhoCanAct.length === 2 && allBetsEqual) {
+    console.log("🔍 RAISE-CALL CHECK: Two players with equal bets");
+    const playersNotActed = playersWhoCanAct.filter(
+      (p: any) => !p.hasActedThisRound
+    );
+    if (playersNotActed.length === 0) {
+      console.log(
+        "✅ RAISE-CALL COMPLETE: Both players have acted with equal bets, advancing phase"
+      );
+      advanceGamePhase(game);
+      return true;
+    } else {
+      console.log(
+        `🔍 RAISE-CALL PENDING: ${
+          playersNotActed.length
+        } players still need to act: ${playersNotActed
+          .map((p: any) => p.name)
+          .join(", ")}`
+      );
+    }
+  }
+
   if (allPlayersActed && allBetsEqual) {
+    console.log(
+      "✅ ROUND COMPLETE - All players acted and all bets equal, advancing to next phase"
+    );
     advanceGamePhase(game);
     return true;
   }
 
+  console.log("❌ ROUND NOT COMPLETE - Continuing betting");
   return false;
 }
 
@@ -539,6 +806,7 @@ function advanceGamePhase(game: any) {
   game.players.forEach((p: any) => {
     p.inPotThisRound = 0;
     p.hasActedThisRound = false;
+    p.isProcessingAction = false; // Reset action lock for new betting round
   });
   game.currentBet = 0;
   game.minimumRaise = game.bigBlind;
@@ -688,6 +956,7 @@ function startNewHand(game: any) {
     player.isAllIn = false;
     player.isActive = true;
     player.hasActedThisRound = false;
+    player.isProcessingAction = false; // Reset action lock for new hand
   });
 
   const deck = createShuffledDeck();
@@ -747,6 +1016,40 @@ function startNewHand(game: any) {
   }
 
   io?.to(game.id).emit("game-updated", game);
+}
+
+function handleChatMessage(
+  socket: Socket,
+  gameId: string,
+  playerId: string,
+  playerName: string,
+  message: string
+) {
+  const game = games.get(gameId);
+  if (!game) {
+    socket.emit("error", { message: "Game not found" });
+    return;
+  }
+
+  // Verify player is in the game
+  const player = game.players.find((p: any) => p.id === playerId);
+  if (!player) {
+    socket.emit("error", { message: "Player not in game" });
+    return;
+  }
+
+  // Create chat message
+  const chatMessage = {
+    id: `${Date.now()}-${playerId}`,
+    playerId,
+    playerName,
+    message: message.trim(),
+    timestamp: Date.now(),
+    type: "message" as const,
+  };
+
+  // Emit to all players in the game room
+  io?.to(gameId).emit("chat-message", chatMessage);
 }
 
 function handleDisconnect(socket: Socket) {
