@@ -40,10 +40,19 @@ export const useSocketWithRedux = () => {
         ? window.location.origin // Use current domain in production
         : "http://localhost:3000"; // Use localhost in development
 
+    // Check if we're on Vercel (which doesn't support WebSockets)
+    const isVercel =
+      typeof window !== "undefined" &&
+      (window.location.hostname.includes("vercel.app") ||
+        window.location.hostname.includes("vercel.com"));
+
     socketRef.current = io(socketUrl, {
       path: "/api/socket",
-      transports: ["websocket"],
-      timeout: 5000,
+      // Use polling for Vercel, WebSocket for other platforms
+      transports: isVercel ? ["polling"] : ["websocket", "polling"],
+      timeout: 10000,
+      retries: 3,
+      upgrade: !isVercel, // Don't try to upgrade to WebSocket on Vercel
     });
 
     const socket = socketRef.current;
