@@ -7,8 +7,6 @@
     "dev:next-only": "next dev --turbopack",
     "dev:old-server": "node server.js",
     "dev:all-old": "concurrently \"npm run dev:next-only\" \"npm run dev:old-server\"",
-    "clean": "rimraf .next node_modules package-lock.json .tailwindcss",
-    "clean:win": "if exist .next rmdir /s /q .next && if exist node_modules rmdir /s /q node_modules && if exist package-lock.json del package-lock.json && if exist .tailwindcss rmdir /s /q .tailwindcss",
     "build": "next build",
     "start": "cross-env NODE_ENV=production node server-with-socketio.js",
     "start:next-only": "next start",
@@ -26,15 +24,13 @@
     "swiper": "^11.2.10"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "autoprefixer": "^10.4.20",
     "concurrently": "^9.2.0",
     "cross-env": "^7.0.3",
-    "postcss": "^8.4.47",
-    "rimraf": "^5.0.5",
-    "tailwindcss": "^3.4.15",
+    "tailwindcss": "^4",
     "typescript": "^5"
   }
 }

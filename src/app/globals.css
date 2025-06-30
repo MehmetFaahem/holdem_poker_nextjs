@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --background: #0f172a;
@@ -11,8 +9,13 @@
   --gold: #ffd700;
   --poker-red: #dc2626;
   --poker-blue: #2563eb;
-  --font-geist-sans: "Inter", sans-serif;
-  --font-geist-mono: "Courier New", monospace;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: light) {
