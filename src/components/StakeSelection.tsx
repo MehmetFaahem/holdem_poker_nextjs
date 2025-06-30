@@ -138,7 +138,7 @@ export const StakeSelection: React.FC<StakeSelectionProps> = ({
       <div className="container">
         <div className="main-content">
           {/* Back Button */}
-          <button
+          {/* <button
             onClick={onBack}
             className="absolute top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white hover:bg-white/20 transition-all duration-300"
           >
@@ -158,7 +158,7 @@ export const StakeSelection: React.FC<StakeSelectionProps> = ({
               />
             </svg>
             Back
-          </button>
+          </button> */}
 
           {/* Desktop Layout */}
           <div className="desktop-layout">

@@ -271,7 +271,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
         )}
 
       {/* Game Status Overlay - Fixed Position */}
-      <div className="fixed top-4 md:top-6 left-4 md:left-6 glass-dark p-3 md:p-4 rounded-xl z-40">
+      <div className="fixed scale-80 top-5 md:top-12 left-4 md:left-2 glass-dark p-3 rounded-xl z-40">
         <div className="text-xs md:text-sm space-y-1 md:space-y-2">
           <div className="text-white font-semibold border-b border-white/20 pb-1 md:pb-2">
             Game Info

@@ -56,7 +56,7 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
 
   return (
     <div
-      className={`${className} flex flex-col items-center space-y-2 relative transition-all duration-300 ${
+      className={`${className} flex flex-col items-center space-y-2 relative transition-all duration-300 p-2 rounded-2xl ${
         isCurrentPlayer ? "animate-glow" : ""
       }`}
     >

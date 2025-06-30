@@ -6,6 +6,7 @@ import { GameLobby } from "@/components/GameLobby";
 import { PokerTable } from "@/components/PokerTable";
 import { ChatIcon } from "@/components/ChatIcon";
 import { ChatWindow } from "@/components/ChatWindow";
+import Welcome from "@/components/Welcome";
 import { useConfirmationModal } from "@/contexts/ConfirmationModalContext";
 import { useAppDispatch } from "@/hooks/useAppSelector";
 import { toggleChat, closeChat } from "@/store/gameSlice";
@@ -32,6 +33,7 @@ export default function Home() {
   const [gameId, setGameId] = useState<string | null>(null);
   const [isInGame, setIsInGame] = useState(false);
   const [createdRoomId, setCreatedRoomId] = useState<string | null>(null);
+  const [showWelcome, setShowWelcome] = useState(true);
 
   // Initialize Socket.IO server on component mount
   useEffect(() => {
@@ -168,6 +170,15 @@ export default function Home() {
       sendChatMessage(actualGameId, message);
     }
   };
+
+  const handleProceedFromWelcome = () => {
+    setShowWelcome(false);
+  };
+
+  // Show welcome screen first
+  if (showWelcome) {
+    return <Welcome onProceed={handleProceedFromWelcome} />;
+  }
 
   // Show lobby if not in a game
   if (!isInGame || !gameState || !currentPlayer) {

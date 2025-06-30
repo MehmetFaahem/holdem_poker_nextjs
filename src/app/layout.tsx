@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { ReduxProvider } from "@/components/ReduxProvider";
 import { ConfirmationModalProvider } from "@/contexts/ConfirmationModalContext";
@@ -16,6 +17,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const blacklisted = localFont({
+  src: "../../public/images/font/Blacklisted.ttf",
+  variable: "--font-blacklisted",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Texas Hold'em Poker - Multiplayer Online",
   description:
@@ -30,7 +37,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${blacklisted.variable} antialiased`}
       >
         <ReduxProvider>
           <ConfirmationModalProvider>
