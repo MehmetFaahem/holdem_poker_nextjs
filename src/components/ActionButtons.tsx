@@ -231,19 +231,36 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
             {/* Quick bet buttons */}
             <div className="grid grid-cols-3 gap-1">
               <button
-                onClick={() => setBetRaiseAmount(Math.floor(gameState.pot / 2))}
+                onClick={() => {
+                  const halfPot = Math.floor(gameState.pot / 2);
+                  const safeHalfPot = Math.min(halfPot, maxAmount);
+                  console.log(
+                    `🎲 HALF POT: pot=${gameState.pot}, halfPot=${halfPot}, safeHalfPot=${safeHalfPot}, maxAmount=${maxAmount}`
+                  );
+                  setBetRaiseAmount(safeHalfPot);
+                }}
                 className="px-2 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-xs font-medium transition-all duration-300"
               >
                 1/2 Pot
               </button>
               <button
-                onClick={() => setBetRaiseAmount(gameState.pot)}
+                onClick={() => {
+                  const potAmount = gameState.pot;
+                  const safePotAmount = Math.min(potAmount, maxAmount);
+                  console.log(
+                    `🎲 POT: pot=${gameState.pot}, safePotAmount=${safePotAmount}, maxAmount=${maxAmount}`
+                  );
+                  setBetRaiseAmount(safePotAmount);
+                }}
                 className="px-2 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-xs font-medium transition-all duration-300"
               >
                 Pot
               </button>
               <button
-                onClick={() => setBetRaiseAmount(maxAmount)}
+                onClick={() => {
+                  console.log(`🎲 MAX: maxAmount=${maxAmount}`);
+                  setBetRaiseAmount(maxAmount);
+                }}
                 className="px-2 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-xs font-medium transition-all duration-300"
               >
                 Max

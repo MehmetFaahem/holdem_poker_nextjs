@@ -16,6 +16,14 @@ import {
 import { GameState, Player } from "@/types/poker";
 import { showToast } from "@/utils/toast";
 
+interface StakeData {
+  stakes: string;
+  buyIn: string;
+  minCall: number;
+  maxCall: number;
+  startingChips: number;
+}
+
 export const useSocketWithRedux = () => {
   const dispatch = useAppDispatch();
   const { gameState, currentPlayer, connectionStatus, error, isLoading } =
@@ -145,6 +153,32 @@ export const useSocketWithRedux = () => {
     [connectionStatus]
   );
 
+  // Join game with custom stakes function
+  const joinGameWithStakes = useCallback(
+    (gameId: string, playerName: string, stakeData: StakeData) => {
+      if (socketRef.current && connectionStatus === "connected") {
+        console.log(
+          "Joining game with stakes:",
+          gameId,
+          "as",
+          playerName,
+          stakeData
+        );
+        socketRef.current.emit("join-game-with-stakes", {
+          gameId,
+          playerName,
+          stakeData,
+        });
+        showToast.gameUpdate(
+          `Creating room with ${stakeData.stakes} stakes...`
+        );
+      } else {
+        showToast.error("Not connected to server");
+      }
+    },
+    [connectionStatus]
+  );
+
   // Leave game function
   const leaveGame = useCallback(
     (gameId: string, playerId: string) => {
@@ -198,6 +232,13 @@ export const useSocketWithRedux = () => {
         return;
       }
 
+      // Prevent rapid-fire actions while a request is being processed
+      if (isLoading) {
+        console.log("CLIENT: Action blocked - request already in progress");
+        showToast.warning("Please wait for your previous action to complete");
+        return;
+      }
+
       // Check if it's the player's turn
       const currentPlayerInGame =
         gameState.players[gameState.currentPlayerIndex];
@@ -227,17 +268,13 @@ export const useSocketWithRedux = () => {
         `Double-check - Player in gameState hasActed: ${playerInGameState?.hasActedThisRound}`
       );
 
-      // Temporarily comment out this check to see if it's blocking actions
-      // const hasActedCheck =
-      //   playerInGameState?.hasActedThisRound || currentPlayer.hasActedThisRound;
+      // TEMPORARILY DISABLED: Client-side hasActedThisRound validation
+      // The server will handle duplicate action prevention
+      console.log(
+        `🔍 CLIENT VALIDATION (DISABLED): playerInGameState.hasActed=${playerInGameState?.hasActedThisRound}, currentPlayer.hasActed=${currentPlayer.hasActedThisRound}`
+      );
 
-      // if (hasActedCheck) {
-      //   console.log(
-      //     `CLIENT ERROR: Player ${currentPlayer.name} has already acted this round!`
-      //   );
-      //   showToast.warning("You have already acted this round");
-      //   return;
-      // }
+      // Note: Allowing client to send action - server will validate and prevent duplicates
 
       // Check if player is still active
       if (currentPlayer.isFolded || currentPlayer.isAllIn) {
@@ -276,6 +313,7 @@ export const useSocketWithRedux = () => {
 
     // Actions
     joinGame,
+    joinGameWithStakes,
     leaveGame,
     startGame,
     playerAction,

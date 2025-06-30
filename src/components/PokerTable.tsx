@@ -4,6 +4,7 @@ import { GameState, Player } from "@/types/poker";
 import { PlayerSeat } from "./PlayerSeat";
 import { Card } from "./Card";
 import { ActionButtons } from "./ActionButtons";
+import { showToast } from "@/utils/toast";
 
 interface PokerTableProps {
   gameState: GameState;
@@ -88,6 +89,16 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   const myPlayer = currentPlayer
     ? gameState.players.find((p) => p.id === currentPlayer.id)
     : null;
+
+  const copyRoomId = async (roomId: string) => {
+    try {
+      await navigator.clipboard.writeText(roomId);
+      showToast.success(`Room ID ${roomId} copied to clipboard!`);
+    } catch (err) {
+      console.error("Failed to copy room ID:", err);
+      showToast.error("Failed to copy room ID to clipboard");
+    }
+  };
 
   // Function to render a player seat
   const renderPlayerSeat = (position: number, className: string) => {
@@ -243,15 +254,18 @@ export const PokerTable: React.FC<PokerTableProps> = ({
       </div>
 
       {/* Action Buttons - Fixed at Bottom */}
-      {isCurrentPlayerTurn && myPlayer && gameState.gamePhase !== "ended" && (
-        <div className="fixed bottom-4 md:bottom-8 left-1/2 transform -translate-x-1/2 z-50">
-          <ActionButtons
-            gameState={gameState}
-            currentPlayer={myPlayer}
-            onAction={onPlayerAction}
-          />
-        </div>
-      )}
+      {isCurrentPlayerTurn &&
+        myPlayer &&
+        gameState.gamePhase !== "ended" &&
+        gameState.isStarted && (
+          <div className="fixed bottom-4 md:bottom-8 left-1/2 transform -translate-x-1/2 z-50">
+            <ActionButtons
+              gameState={gameState}
+              currentPlayer={myPlayer}
+              onAction={onPlayerAction}
+            />
+          </div>
+        )}
 
       {/* Game Status Overlay - Fixed Position */}
       <div className="fixed top-4 md:top-6 left-4 md:left-6 glass-dark p-3 md:p-4 rounded-xl z-40">
@@ -427,43 +441,121 @@ export const PokerTable: React.FC<PokerTableProps> = ({
 
       {/* Waiting for Players */}
       {!gameState.isStarted && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-40">
-          <div className="winner-modal max-w-md w-full mx-4">
-            <div className="p-6 md:p-8 text-center">
-              <div className="w-14 h-14 md:w-16 md:h-16 mx-auto bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mb-6">
-                <span className="text-xl md:text-2xl">⏳</span>
-              </div>
-              <h2 className="text-xl md:text-2xl font-bold text-slate-800 mb-4">
-                Waiting for Players
-              </h2>
-              <p className="text-slate-600 mb-6">
-                {gameState.players.length < 2
-                  ? "Need at least 2 players to start the game"
-                  : "Ready to deal! Any player can start the game."}
-              </p>
+        <div className="fixed inset-0 bg-black/10 backdrop-blur-md flex items-center justify-center z-40">
+          <div className="bg-white/95 max-h-[800px] overflow-y-auto backdrop-blur-xl max-w-lg w-full mx-4 rounded-3xl shadow-2xl border border-white/20">
+            <div className="p-8 text-center relative overflow-hidden">
+              {/* Animated background gradient */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 animate-pulse"></div>
 
-              <div className="bg-white/50 rounded-lg p-4 mb-6">
-                <div className="text-sm text-slate-600 mb-3">
-                  Players: {gameState.players.length}/{gameState.maxPlayers}
+              <div className="relative z-10">
+                {/* Modern icon with animation */}
+                <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-3xl flex items-center justify-center mb-8 shadow-lg animate-bounce">
+                  <span className="text-3xl">⏳</span>
                 </div>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {gameState.players.map((player, index) => (
-                    <div
-                      key={player.id}
-                      className="bg-blue-100 text-blue-800 px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium"
-                    >
-                      {player.name}
+
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent mb-6">
+                  Waiting for Players
+                </h2>
+
+                {/* Room ID Section - Modern Card Design */}
+                <div className="mb-8 p-6 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-2xl border border-blue-200/50 backdrop-blur-sm">
+                  <div className="text-sm text-slate-600 mb-3 font-semibold uppercase tracking-wide">
+                    Share Room ID
+                  </div>
+                  <div className="flex items-center justify-center space-x-4">
+                    <div className="text-2xl font-mono font-bold text-slate-800 bg-white/80 px-6 py-3 rounded-xl border-2 border-blue-300 shadow-lg backdrop-blur-sm">
+                      {gameState.id}
                     </div>
-                  ))}
+                    <button
+                      onClick={() => copyRoomId(gameState.id)}
+                      className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-blue-500/25"
+                      title="Copy Room ID"
+                    >
+                      📋
+                    </button>
+                  </div>
+                  <div className="text-xs text-slate-500 mt-3 text-center font-medium">
+                    Share this ID with friends to invite them to your game!
+                  </div>
                 </div>
-              </div>
+                {/* Players Section - Modern Design */}
+                <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-white/30 shadow-lg">
+                  <div className="text-sm text-slate-600 mb-4 font-semibold uppercase tracking-wide">
+                    Players: {gameState.players.length}/{gameState.maxPlayers}
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-3">
+                    {gameState.players.map((player, index) => (
+                      <div
+                        key={player.id}
+                        className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg border border-white/20 backdrop-blur-sm"
+                      >
+                        {player.name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Custom Stakes Information - Glassmorphism */}
+                {gameState.stakeInfo && (
+                  <div className="mb-8 p-6 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-2xl border border-emerald-200/50 backdrop-blur-sm">
+                    <div className="text-sm text-slate-600 mb-4 font-semibold uppercase tracking-wide">
+                      🎯 Game Stakes
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-white/30 shadow-sm">
+                        <div className="font-bold text-emerald-600 text-xs uppercase tracking-wide">
+                          Stakes
+                        </div>
+                        <div className="text-slate-700 font-semibold">
+                          {gameState.stakeInfo.stakes}
+                        </div>
+                      </div>
+                      <div className="text-center bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-white/30 shadow-sm">
+                        <div className="font-bold text-blue-600 text-xs uppercase tracking-wide">
+                          Buy-In
+                        </div>
+                        <div className="text-slate-700 font-semibold">
+                          {gameState.stakeInfo.buyIn}
+                        </div>
+                      </div>
+                      <div className="text-center bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-white/30 shadow-sm">
+                        <div className="font-bold text-purple-600 text-xs uppercase tracking-wide">
+                          Small Blind
+                        </div>
+                        <div className="text-slate-700 font-semibold">
+                          ${gameState.smallBlind.toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="text-center bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-white/30 shadow-sm">
+                        <div className="font-bold text-orange-600 text-xs uppercase tracking-wide">
+                          Big Blind
+                        </div>
+                        <div className="text-slate-700 font-semibold">
+                          ${gameState.bigBlind.toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-600 mt-4 text-center font-semibold bg-white/40 rounded-lg py-2">
+                      Starting Chips: $
+                      {gameState.stakeInfo.startingChips.toLocaleString()}
+                    </div>
+                  </div>
+                )}
 
-              {gameState.players.length >= 2 && (
-                <div className="text-green-600 font-semibold flex items-center justify-center text-sm md:text-base">
-                  <span className="mr-2">✓</span>
-                  Ready to start! Look for the "Start Game" button.
-                </div>
-              )}
+                <p className="text-slate-600 mb-8 text-lg font-medium">
+                  {gameState.players.length < 2
+                    ? "Need at least 2 players to start the game"
+                    : "Ready to deal! Any player can start the game."}
+                </p>
+
+                {gameState.players.length >= 2 && (
+                  <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-300/50 rounded-2xl p-4">
+                    <div className="text-green-700 font-bold flex items-center justify-center text-base">
+                      <span className="mr-2 text-xl">✓</span>
+                      Ready to start! Look for the "Start Game" button.
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

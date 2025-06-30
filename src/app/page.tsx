@@ -5,6 +5,7 @@ import { useSocketWithRedux } from "@/hooks/useSocketWithRedux";
 import { GameLobby } from "@/components/GameLobby";
 import { PokerTable } from "@/components/PokerTable";
 import { useConfirmationModal } from "@/contexts/ConfirmationModalContext";
+import type { StakeData } from "@/components/StakeSelection";
 
 export default function Home() {
   const {
@@ -13,6 +14,7 @@ export default function Home() {
     connectionStatus,
     isLoading,
     joinGame,
+    joinGameWithStakes,
     leaveGame,
     startGame,
     playerAction,
@@ -22,6 +24,7 @@ export default function Home() {
 
   const [gameId, setGameId] = useState<string | null>(null);
   const [isInGame, setIsInGame] = useState(false);
+  const [createdRoomId, setCreatedRoomId] = useState<string | null>(null);
 
   // Initialize Socket.IO server on component mount
   useEffect(() => {
@@ -40,6 +43,7 @@ export default function Home() {
       // Reset local state if Redux state is cleared (e.g., when leaving game)
       setIsInGame(false);
       setGameId(null);
+      setCreatedRoomId(null);
     }
   }, [currentPlayer, gameState, gameId]);
 
@@ -49,12 +53,38 @@ export default function Home() {
       console.log("Redux state cleared - resetting local state");
       setIsInGame(false);
       setGameId(null);
+      setCreatedRoomId(null);
     }
   }, [gameState, currentPlayer, isInGame]);
 
   const handleJoinGame = (gameId: string, playerName: string) => {
     setGameId(gameId);
     joinGame(gameId, playerName);
+  };
+
+  const handleCreateRoom = (playerName: string) => {
+    // Auto-generate a room ID
+    const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    setCreatedRoomId(roomId);
+    setGameId(roomId);
+
+    // Join the newly created room
+    joinGame(roomId, playerName);
+  };
+
+  const handleCreateRoomWithStakes = (
+    playerName: string,
+    stakeData: StakeData
+  ) => {
+    // Auto-generate a room ID
+    const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    setCreatedRoomId(roomId);
+    setGameId(roomId);
+
+    console.log("Creating room with stakes:", stakeData);
+
+    // Join the newly created room with custom stakes
+    joinGameWithStakes(roomId, playerName, stakeData);
   };
 
   const handleLeaveGame = async () => {
@@ -77,11 +107,13 @@ export default function Home() {
       // Reset local state immediately
       setIsInGame(false);
       setGameId(null);
+      setCreatedRoomId(null);
     } else {
       // Fallback - reset state even if gameId/currentPlayer is missing
       console.log("Force leaving game - resetting all state");
       setIsInGame(false);
       setGameId(null);
+      setCreatedRoomId(null);
     }
   };
 
@@ -150,7 +182,10 @@ export default function Home() {
 
         <GameLobby
           onJoinGame={handleJoinGame}
+          onCreateRoom={handleCreateRoom}
+          onCreateRoomWithStakes={handleCreateRoomWithStakes}
           isConnected={connectionStatus === "connected"}
+          createdRoomId={createdRoomId}
         />
       </div>
     );

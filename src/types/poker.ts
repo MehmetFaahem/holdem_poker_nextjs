@@ -44,6 +44,11 @@ export interface GameState {
   isStarted: boolean;
   winners?: { playerId: string; amount: number; hand: string }[];
   nextHandCountdown?: number | null;
+  stakeInfo?: {
+    stakes: string;
+    buyIn: string;
+    startingChips: number;
+  };
 }
 
 export interface SocketEvents {

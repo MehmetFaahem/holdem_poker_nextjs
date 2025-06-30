@@ -38,6 +38,10 @@ function initSocketIO(httpServer) {
       handleJoinGame(socket, gameId, playerName);
     });
 
+    socket.on("join-game-with-stakes", ({ gameId, playerName, stakeData }) => {
+      handleJoinGameWithStakes(socket, gameId, playerName, stakeData);
+    });
+
     socket.on("leave-game", ({ gameId, playerId }) => {
       handleLeaveGame(socket, gameId, playerId);
     });
@@ -101,10 +105,110 @@ function handleJoinGame(socket, gameId, playerName) {
   }
 
   const playerId = socket.id;
+  // Use custom starting chips if game has stakeInfo, otherwise use default
+  const startingChips = game.stakeInfo ? game.stakeInfo.startingChips : 1000;
+
   const player = {
     id: playerId,
     name: playerName,
-    chips: 1000,
+    chips: startingChips,
+    holeCards: [],
+    inPotThisRound: 0,
+    totalPotContribution: 0,
+    isActive: true,
+    isFolded: false,
+    isAllIn: false,
+    hasActedThisRound: false,
+    position: game.players.length,
+  };
+
+  game.players.push(player);
+  playerSockets.set(playerId, socket.id);
+
+  console.log(
+    `Player ${playerName} joined game ${gameId} with ${startingChips} starting chips${
+      game.stakeInfo ? " (custom stakes)" : " (default)"
+    }`
+  );
+
+  socket.join(gameId);
+  socket.emit("player-joined", player);
+  io?.to(gameId).emit("game-updated", game);
+}
+
+function handleJoinGameWithStakes(socket, gameId, playerName, stakeData) {
+  console.log(
+    `Player ${playerName} joining game ${gameId} with custom stakes:`,
+    stakeData
+  );
+
+  if (!gameId || !playerName) {
+    socket.emit("error", { message: "Game ID and player name are required" });
+    return;
+  }
+
+  if (
+    !stakeData ||
+    !stakeData.minCall ||
+    !stakeData.maxCall ||
+    !stakeData.startingChips
+  ) {
+    socket.emit("error", { message: "Valid stake data is required" });
+    return;
+  }
+
+  let game = games.get(gameId);
+  if (!game) {
+    // Create new game with custom stakes
+    const smallBlind = stakeData.minCall;
+    const bigBlind = stakeData.maxCall;
+
+    game = {
+      id: gameId,
+      players: [],
+      communityCards: [],
+      pot: 0,
+      currentBet: 0,
+      minimumRaise: bigBlind, // Start minimum raise at big blind
+      dealerPosition: 0,
+      currentPlayerIndex: 0,
+      gamePhase: "waiting",
+      smallBlind: smallBlind,
+      bigBlind: bigBlind,
+      maxPlayers: 10,
+      isStarted: false,
+      lastRaiseAmount: 0,
+      roundStartPlayerIndex: 0,
+      nextHandCountdown: null,
+      countdownInterval: null,
+      // Store the original stake data for reference
+      stakeInfo: {
+        stakes: stakeData.stakes,
+        buyIn: stakeData.buyIn,
+        startingChips: stakeData.startingChips,
+      },
+    };
+    games.set(gameId, game);
+    console.log(
+      `Created game ${gameId} with Small Blind: ${smallBlind}, Big Blind: ${bigBlind}, Starting Chips: ${stakeData.startingChips}`
+    );
+  }
+
+  if (game.players.length >= game.maxPlayers) {
+    socket.emit("error", { message: "Game is full" });
+    return;
+  }
+
+  if (game.isStarted) {
+    socket.emit("error", { message: "Game already started" });
+    return;
+  }
+
+  const playerId = socket.id;
+  const player = {
+    id: playerId,
+    name: playerName,
+    chips: stakeData.startingChips, // Use custom starting chips
     holeCards: [],
     inPotThisRound: 0,
     totalPotContribution: 0,
@@ -345,16 +449,31 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
   if (player.hasActedThisRound) {
     console.log(`ERROR: Player ${player.name} has already acted this round!`);
     socket.emit("error", { message: "You have already acted this round" });
-
-    const roundComplete = checkBettingRoundComplete(game);
-    if (!roundComplete) {
-      moveToNextPlayer(game);
-    }
-    io?.to(gameId).emit("game-updated", game);
     return;
   }
 
-  console.log(`Player ${player.name} action: ${action}, amount: ${amount}`);
+  console.log(`=== PLAYER ACTION DEBUG ===`);
+  console.log(`Player: ${player.name}, Action: ${action}, Amount: ${amount}`);
+  console.log(
+    `BEFORE ACTION - Player inPotThisRound: ${player.inPotThisRound}, chips: ${player.chips}`
+  );
+  console.log(
+    `BEFORE ACTION - Game currentBet: ${game.currentBet}, pot: ${game.pot}`
+  );
+
+  // 🚨 CORRUPTION PREVENTION: Validate bet/raise amounts
+  if ((action === "bet" || action === "raise") && amount) {
+    const maxReasonableAmount = Math.min(player.chips, game.bigBlind * 100); // Max 100x big blind
+    if (amount > maxReasonableAmount) {
+      console.log(
+        `🚨 CORRUPTION BLOCKED: ${action} amount ${amount} is unreasonably high (max reasonable: ${maxReasonableAmount})`
+      );
+      socket.emit("error", {
+        message: `Bet amount ${amount} is too high. Maximum allowed: ${maxReasonableAmount}`,
+      });
+      return;
+    }
+  }
 
   // Calculate the actual amount for badge display BEFORE modifying player state
   let badgeAmount = amount;
@@ -463,6 +582,30 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
 
   player.hasActedThisRound = true;
 
+  console.log(`=== AFTER ACTION DEBUG ===`);
+  console.log(
+    `Player: ${player.name}, Final inPotThisRound: ${player.inPotThisRound}, chips: ${player.chips}`
+  );
+  console.log(`Game: currentBet: ${game.currentBet}, pot: ${game.pot}`);
+
+  // 🚨 POT CORRUPTION DETECTION: Check if pot is unreasonably high
+  const totalPlayerChips = game.players.reduce(
+    (sum, p) => sum + p.chips + p.totalPotContribution,
+    0
+  );
+  if (game.pot > totalPlayerChips) {
+    console.log(
+      `🚨 POT CORRUPTION DETECTED: pot=${game.pot} > totalPlayerChips=${totalPlayerChips}`
+    );
+    // Recalculate pot from player contributions
+    const correctPot = game.players.reduce(
+      (sum, p) => sum + p.totalPotContribution,
+      0
+    );
+    console.log(`🔧 FIXING POT: changing from ${game.pot} to ${correctPot}`);
+    game.pot = correctPot;
+  }
+
   // Emit the player action to ALL players in the room for action badges
   console.log(
     `🚀 SERVER: Broadcasting action ${action} by ${player.name} to room ${gameId}, amount: ${badgeAmount}`
@@ -507,10 +650,17 @@ function moveToNextPlayer(game) {
 }
 
 function checkBettingRoundComplete(game) {
+  console.log(`=== ROUND COMPLETION CHECK ===`);
+  console.log(`Game phase: ${game.gamePhase}`);
+  console.log(`Current bet: ${game.currentBet}`);
+  console.log(`Pot: ${game.pot}`);
+
   const activePlayers = game.players.filter((p) => !p.isFolded);
+  console.log(`Active players: ${activePlayers.length}`);
 
   if (activePlayers.length <= 1) {
     if (activePlayers.length === 1) {
+      console.log(`Only one active player: ${activePlayers[0].name} wins`);
       endHand(game, activePlayers[0]);
     }
     return true;
@@ -520,17 +670,29 @@ function checkBettingRoundComplete(game) {
     (p) => !p.isFolded && !p.isAllIn
   );
 
+  console.log(`Players who can act: ${playersWhoCanAct.length}`);
+  playersWhoCanAct.forEach((p) => {
+    console.log(
+      `  ${p.name}: hasActed=${p.hasActedThisRound}, inPot=${p.inPotThisRound}, chips=${p.chips}`
+    );
+  });
+
   if (playersWhoCanAct.length === 0) {
+    console.log("All players folded or all-in, advancing phase");
     advanceGamePhase(game);
     return true;
   }
 
   if (playersWhoCanAct.length === 1) {
     const lastPlayer = playersWhoCanAct[0];
+    console.log(
+      `Only one player can act: ${lastPlayer.name}, hasActed=${lastPlayer.hasActedThisRound}, inPot=${lastPlayer.inPotThisRound}, currentBet=${game.currentBet}`
+    );
     if (
       lastPlayer.hasActedThisRound &&
       lastPlayer.inPotThisRound === game.currentBet
     ) {
+      console.log("Last player condition met, advancing phase");
       advanceGamePhase(game);
       return true;
     }
@@ -541,11 +703,64 @@ function checkBettingRoundComplete(game) {
     (p) => p.inPotThisRound === game.currentBet
   );
 
+  console.log(`All players acted: ${allPlayersActed}`);
+  console.log(`All bets equal: ${allBetsEqual}`);
+
+  if (!allBetsEqual) {
+    console.log("BET MISMATCH DETAILS:");
+    playersWhoCanAct.forEach((p) => {
+      console.log(
+        `  ${p.name}: inPotThisRound=${p.inPotThisRound} vs currentBet=${
+          game.currentBet
+        } (diff: ${p.inPotThisRound - game.currentBet})`
+      );
+    });
+  }
+
   if (allPlayersActed && allBetsEqual) {
+    console.log("Round complete - advancing to next phase");
     advanceGamePhase(game);
     return true;
   }
 
+  // SAFETY FIX: Check for corruption scenario
+  if (allPlayersActed && !allBetsEqual) {
+    console.log(
+      "🚨 CORRUPTION DETECTED: All players acted but bets don't match!"
+    );
+
+    // Check if currentBet is unreasonably high (likely corrupted)
+    const maxReasonableBet =
+      Math.max(...game.players.map((p) => p.chips)) + 1000;
+    if (game.currentBet > maxReasonableBet) {
+      console.log(
+        `🔧 FIXING CORRUPTION: currentBet ${game.currentBet} is unreasonably high, resetting...`
+      );
+
+      // Find the highest actual bet among players who can act
+      const highestActualBet = Math.max(
+        ...playersWhoCanAct.map((p) => p.inPotThisRound)
+      );
+      game.currentBet = highestActualBet;
+
+      console.log(
+        `🔧 Reset currentBet to ${game.currentBet} (highest actual bet)`
+      );
+
+      // Check again if all bets are now equal
+      const allBetsEqualAfterFix = playersWhoCanAct.every(
+        (p) => p.inPotThisRound === game.currentBet
+      );
+
+      if (allBetsEqualAfterFix) {
+        console.log("✅ CORRUPTION FIXED: Round can now complete");
+        advanceGamePhase(game);
+        return true;
+      }
+    }
+  }
+
+  console.log("Round NOT complete - continuing");
   return false;
 }
 
@@ -685,6 +900,7 @@ function startHandCountdown(game) {
 }
 
 function startNewHand(game) {
+  console.log(`🃏 STARTING NEW HAND - Resetting all game state`);
   game.dealerPosition = (game.dealerPosition + 1) % game.players.length;
   game.gamePhase = "preflop";
   game.pot = 0;
@@ -693,7 +909,12 @@ function startNewHand(game) {
   game.winners = null;
   game.nextHandCountdown = null;
 
+  console.log(
+    `💰 HAND START VALIDATION: smallBlind=${game.smallBlind}, bigBlind=${game.bigBlind}`
+  );
+
   game.players.forEach((player) => {
+    console.log(`🔄 RESETTING ${player.name}: chips=${player.chips}`);
     player.holeCards = [];
     player.inPotThisRound = 0;
     player.totalPotContribution = 0;
@@ -701,6 +922,14 @@ function startNewHand(game) {
     player.isAllIn = false;
     player.isActive = true;
     player.hasActedThisRound = false;
+
+    // 🚨 CHIP VALIDATION: Ensure no negative chips
+    if (player.chips < 0) {
+      console.log(
+        `🚨 NEGATIVE CHIPS DETECTED for ${player.name}: ${player.chips}, setting to 0`
+      );
+      player.chips = 0;
+    }
   });
 
   const deck = createShuffledDeck();

@@ -353,12 +353,6 @@ function handlePlayerAction(
   if (player.hasActedThisRound) {
     console.log(`ERROR: Player ${player.name} has already acted this round!`);
     socket.emit("error", { message: "You have already acted this round" });
-
-    const roundComplete = checkBettingRoundComplete(game);
-    if (!roundComplete) {
-      moveToNextPlayer(game);
-    }
-    io?.to(gameId).emit("game-updated", game);
     return;
   }
 

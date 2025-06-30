@@ -335,21 +335,6 @@ function handlePlayerAction(socket, gameId, playerId, action, amount) {
   if (player.hasActedThisRound) {
     console.log(`ERROR: Player ${player.name} has already acted this round!`);
     socket.emit("error", { message: "You have already acted this round" });
-
-    // Check if betting round is complete or if we need to move to next player
-    const roundComplete = checkBettingRoundComplete(game);
-    console.log(
-      `After duplicate action check - Round complete: ${roundComplete}`
-    );
-
-    if (!roundComplete) {
-      // Round not complete, move to next eligible player
-      console.log("Moving to next player after duplicate action attempt");
-      moveToNextPlayer(game);
-    }
-
-    // Send updated game state regardless
-    io.to(gameId).emit("game-updated", game);
     return;
   }
 

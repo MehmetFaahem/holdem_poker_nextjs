@@ -52,10 +52,22 @@ const gameSlice = createSlice({
         if (updatedPlayer) {
           console.log(`=== SYNCING CURRENT PLAYER WITH SERVER ===`);
           console.log(
+            `Phase: ${action.payload.gamePhase}, Current turn: ${action.payload.currentPlayerIndex}`
+          );
+          console.log(
+            `Player ID: ${state.currentPlayer.id}, Name: ${state.currentPlayer.name}`
+          );
+          console.log(
             `Before: hasActedThisRound = ${state.currentPlayer.hasActedThisRound}`
           );
           console.log(
             `Server: hasActedThisRound = ${updatedPlayer.hasActedThisRound}`
+          );
+          console.log(
+            `All players acted status:`,
+            action.payload.players
+              .map((p) => `${p.name}:${p.hasActedThisRound}`)
+              .join(", ")
           );
           state.currentPlayer = updatedPlayer;
           console.log(
