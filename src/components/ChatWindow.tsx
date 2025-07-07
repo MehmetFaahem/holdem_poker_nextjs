@@ -87,7 +87,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-24 left-6 z-50 w-80 h-96 bg-slate-800 rounded-lg shadow-2xl border border-slate-600 flex flex-col">
+    <div className="chat-window fixed bottom-16 md:bottom-24 left-2 md:left-6 z-50 w-[calc(100vw-1rem)] md:w-80 h-64 md:h-96 bg-slate-800 rounded-lg shadow-2xl border border-slate-600 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-slate-600 bg-slate-700 rounded-t-lg">
         <h3 className="text-white font-semibold text-sm">Room Chat</h3>

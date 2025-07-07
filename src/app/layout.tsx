@@ -33,6 +33,8 @@ export const metadata: Metadata = {
   title: "Texas Hold'em Poker - Multiplayer Online",
   description:
     "Play Texas Hold'em poker online with friends. Real-time multiplayer poker game with professional interface and responsive design.",
+  viewport:
+    "width=device-width, initial-scale=1.0, orientation=portrait, user-scalable=no",
 };
 
 export default function RootLayout({
@@ -42,6 +44,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0, orientation=portrait, user-scalable=no"
+        />
+        <meta name="screen-orientation" content="portrait" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black-translucent"
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${blacklisted.variable} ${impact.variable} antialiased`}
       >

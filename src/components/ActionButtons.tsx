@@ -33,20 +33,22 @@ function PokerActionButton({
   disabled = false,
 }: PokerActionButtonProps) {
   return (
-    <div className={`flex flex-col items-center gap-3 w-24 ${className}`}>
+    <div
+      className={`flex flex-col items-center gap-2 md:gap-3 w-16 md:w-24 ${className}`}
+    >
       <div
-        className="text-white text-center font-inter font-bold text-xl leading-[150%] self-stretch"
-        style={{ letterSpacing: "-0.8px", fontSize: "20px" }}
+        className="text-white text-center font-inter font-bold text-sm md:text-xl leading-[150%] self-stretch"
+        style={{ letterSpacing: "-0.8px", fontSize: "14px" }}
       >
         {label}
       </div>
       <button
         onClick={onClick}
         disabled={disabled}
-        className={`w-16 h-16 rounded-full flex items-center justify-center hover:scale-105 transition-transform duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
+        className={`w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center hover:scale-105 transition-transform duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
         style={{ backgroundColor: disabled ? "#666" : backgroundColor }}
       >
-        {icon}
+        <div className="scale-75 md:scale-100">{icon}</div>
       </button>
     </div>
   );
@@ -196,9 +198,9 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
 
   return (
     <>
-      <div className="glass-dark p-4 rounded-xl backdrop-blur-xl animate-slideInUp max-w-md w-full">
+      <div className="action-buttons-container glass-dark p-3 md:p-4 rounded-xl backdrop-blur-xl animate-slideInUp max-w-md w-full">
         {/* Turn Indicator */}
-        <div className="text-center mb-4">
+        <div className="text-center mb-3 md:mb-4">
           {!isCurrentTurn ? (
             <div className="flex items-center justify-center space-x-2 text-amber-400">
               <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
@@ -217,7 +219,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-center items-center gap-6 mb-4">
+        <div className="flex justify-center items-center gap-3 md:gap-6 mb-3 md:mb-4">
           {actionButtons.map((action, index) => (
             <PokerActionButton
               key={index}

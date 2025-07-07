@@ -72,7 +72,7 @@ function handleJoinGame(socket, gameId, playerName) {
       gamePhase: "waiting",
       smallBlind: 10,
       bigBlind: 20,
-      maxPlayers: 10,
+      maxPlayers: 8,
       isStarted: false,
       lastRaiseAmount: 0,
       roundStartPlayerIndex: 0,

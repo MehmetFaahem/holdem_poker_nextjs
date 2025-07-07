@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useSocketWithRedux } from "@/hooks/useSocketWithRedux";
+import { useOrientation, lockOrientation } from "@/hooks/useOrientation";
 import { GameLobby } from "@/components/GameLobby";
 import { PokerTable } from "@/components/PokerTable";
 import { ChatIcon } from "@/components/ChatIcon";
 import { ChatWindow } from "@/components/ChatWindow";
+import { LandscapeWarning } from "@/components/LandscapeWarning";
 import Welcome from "@/components/Welcome";
 import { useConfirmationModal } from "@/contexts/ConfirmationModalContext";
 import { useAppDispatch } from "@/hooks/useAppSelector";
@@ -27,6 +29,7 @@ export default function Home() {
     sendChatMessage,
   } = useSocketWithRedux();
 
+  const orientation = useOrientation();
   const { showConfirmation } = useConfirmationModal();
   const dispatch = useAppDispatch();
 
@@ -40,6 +43,16 @@ export default function Home() {
   useEffect(() => {
     fetch("/api/socket").catch(console.error);
   }, []);
+
+  // Handle orientation lock on mobile devices
+  useEffect(() => {
+    if (orientation.isMobile && !showWelcome) {
+      // Try to lock orientation to portrait when entering the game on mobile
+      lockOrientation("portrait").catch((err) => {
+        console.log("Could not lock orientation:", err);
+      });
+    }
+  }, [orientation.isMobile, showWelcome]);
 
   // Check if user is coming from stakes with selected data OR joining existing room
   useEffect(() => {
@@ -234,7 +247,18 @@ export default function Home() {
   // Show lobby if not in a game
   if (!isInGame || !gameState || !currentPlayer) {
     return (
-      <div className="relative">
+      <div
+        className={`relative ${
+          orientation.isMobile ? "poker-table-container" : ""
+        }`}
+      >
+        {/* Landscape Warning for Mobile */}
+        <LandscapeWarning
+          isVisible={
+            orientation.isMobile && orientation.isLandscape && !showWelcome
+          }
+        />
+
         {/* Connection Status */}
         <div className="fixed top-6 right-6 z-50">
           <div
@@ -265,18 +289,31 @@ export default function Home() {
           </div>
         </div>
 
-        <GameLobby
-          onJoinGame={handleJoinGame}
-          onCreateRoom={handleCreateRoom}
-          isConnected={connectionStatus === "connected"}
-          createdRoomId={createdRoomId}
-        />
+        <div className={orientation.isMobile ? "poker-table-mobile" : ""}>
+          <GameLobby
+            onJoinGame={handleJoinGame}
+            onCreateRoom={handleCreateRoom}
+            isConnected={connectionStatus === "connected"}
+            createdRoomId={createdRoomId}
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="relative">
+    <div
+      className={`relative ${
+        orientation.isMobile ? "poker-table-container" : ""
+      }`}
+    >
+      {/* Landscape Warning for Mobile */}
+      <LandscapeWarning
+        isVisible={
+          orientation.isMobile && orientation.isLandscape && !showWelcome
+        }
+      />
+
       {/* Loading Overlay */}
       {isLoading && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
@@ -297,12 +334,14 @@ export default function Home() {
         </div>
       )}
 
-      <PokerTable
-        gameState={gameState}
-        currentPlayer={currentPlayer}
-        onPlayerAction={handlePlayerAction}
-        onStartGame={handleStartGame}
-      />
+      <div className={orientation.isMobile ? "poker-table-mobile" : ""}>
+        <PokerTable
+          gameState={gameState}
+          currentPlayer={currentPlayer}
+          onPlayerAction={handlePlayerAction}
+          onStartGame={handleStartGame}
+        />
+      </div>
 
       {/* Connection Status in Game */}
       <div className="fixed top-6 left-6 z-50">

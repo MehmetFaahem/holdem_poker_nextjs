@@ -311,7 +311,7 @@ export default function Stakes() {
                         <div className="text-[#991D1D] text-2xl font-blacklisted tracking-wider mb-1 sm:mb-2 md:mb-4">
                           STAKES
                         </div>
-                        <div className="text-white font-impact text-6xl mt-6">
+                        <div className="text-white font-impact text-6xl md:text-5xl mt-6 md:mt-4">
                           {card.stakes}
                         </div>
                       </div>
@@ -328,7 +328,7 @@ export default function Stakes() {
                           <div className="text-white text-2xl sm:text-base md:text-lg lg:text-2xl font-blacklisted tracking-wider mb-1 sm:mb-2 md:mb-3">
                             BUY IN
                           </div>
-                          <div className="text-[#991D1D] font-impact text-6xl mt-6">
+                          <div className="text-[#991D1D] font-impact text-6xl md:text-5xl mt-6 md:mt-4">
                             {card.buyIn}
                           </div>
                         </div>

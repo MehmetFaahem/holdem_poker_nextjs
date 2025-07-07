@@ -355,6 +355,11 @@ body {
   .glass {
     backdrop-filter: blur(8px);
   }
+
+  /* Portrait mode optimizations for mobile */
+  body {
+    overflow-x: hidden;
+  }
 }
 
 @media (max-width: 480px) {
@@ -370,6 +375,140 @@ body {
   .btn-modern {
     padding: 10px 20px;
     border-radius: 10px;
+  }
+}
+
+/* Portrait orientation specific styles */
+@media screen and (orientation: portrait) and (max-width: 768px) {
+  .poker-table-container {
+    height: 100vh;
+    width: 100vw;
+    position: fixed;
+    top: 0;
+    left: 0;
+    overflow: hidden;
+  }
+
+  .poker-table-mobile {
+    transform: scale(0.75);
+    transform-origin: center center;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* Optimize player seat positioning for portrait */
+  .player-seat {
+    transform: scale(0.8);
+  }
+
+  /* Adjust action buttons for portrait */
+  .action-buttons-container {
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+  }
+
+  /* Optimize chat window for portrait */
+  .chat-window {
+    width: 95%;
+    height: 60vh;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+/* Landscape warning for mobile devices */
+@media screen and (orientation: landscape) and (max-height: 600px) and (max-width: 1024px) {
+  .landscape-warning {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    color: white;
+    text-align: center;
+    padding: 2rem;
+  }
+
+  .landscape-warning h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: #ffd700;
+  }
+
+  .landscape-warning p {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+    opacity: 0.8;
+  }
+
+  .rotate-icon {
+    font-size: 3rem;
+    animation: rotate 2s ease-in-out infinite;
+  }
+
+  @keyframes rotate {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    50% {
+      transform: rotate(90deg);
+    }
+  }
+}
+
+/* Force portrait mode styles */
+.force-portrait {
+  transform-origin: center center;
+  transition: transform 0.3s ease-in-out;
+}
+
+/* Mobile game optimizations */
+@media (max-width: 768px) {
+  /* Scale down poker table elements */
+  .poker-card {
+    width: 2.5rem;
+    height: 3.5rem;
+  }
+
+  /* Optimize chip display */
+  .chip-display {
+    font-size: 0.75rem;
+  }
+
+  /* Smaller pot display */
+  .pot-display {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  /* Compact player info */
+  .player-info {
+    padding: 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  /* Responsive game status */
+  .game-status {
+    top: 1rem;
+    right: 1rem;
+    padding: 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  /* Mobile-friendly modal */
+  .modal-content {
+    margin: 1rem;
+    max-width: calc(100vw - 2rem);
   }
 }
 

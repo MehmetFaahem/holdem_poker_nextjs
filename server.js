@@ -63,7 +63,7 @@ function handleJoinGame(socket, gameId, playerName) {
       gamePhase: "waiting",
       smallBlind: 10,
       bigBlind: 20,
-      maxPlayers: 10,
+      maxPlayers: 8,
       isStarted: false,
       lastRaiseAmount: 0, // Track the last raise amount for minimum raise calculation
       roundStartPlayerIndex: 0, // Who started this betting round
