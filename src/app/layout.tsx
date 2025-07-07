@@ -23,6 +23,12 @@ const blacklisted = localFont({
   display: "swap",
 });
 
+const impact = localFont({
+  src: "../../public/images/font/impact.ttf",
+  variable: "--font-impact",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Texas Hold'em Poker - Multiplayer Online",
   description:
@@ -37,7 +43,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${blacklisted.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${blacklisted.variable} ${impact.variable} antialiased`}
       >
         <ReduxProvider>
           <ConfirmationModalProvider>

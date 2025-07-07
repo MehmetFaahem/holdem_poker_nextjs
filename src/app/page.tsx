@@ -10,7 +10,7 @@ import Welcome from "@/components/Welcome";
 import { useConfirmationModal } from "@/contexts/ConfirmationModalContext";
 import { useAppDispatch } from "@/hooks/useAppSelector";
 import { toggleChat, closeChat } from "@/store/gameSlice";
-import type { StakeData } from "@/components/StakeSelection";
+import type { StakeData } from "@/components/Stakes";
 
 export default function Home() {
   const {
@@ -34,10 +34,61 @@ export default function Home() {
   const [isInGame, setIsInGame] = useState(false);
   const [createdRoomId, setCreatedRoomId] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [isFromStakes, setIsFromStakes] = useState(false);
 
   // Initialize Socket.IO server on component mount
   useEffect(() => {
     fetch("/api/socket").catch(console.error);
+  }, []);
+
+  // Check if user is coming from stakes with selected data OR joining existing room
+  useEffect(() => {
+    const selectedStake = sessionStorage.getItem("selectedStake");
+    const playerName = sessionStorage.getItem("playerName");
+    const goToLobby = sessionStorage.getItem("goToLobby");
+    const joinRoomId = sessionStorage.getItem("joinRoomId");
+    const joinExistingRoom = sessionStorage.getItem("joinExistingRoom");
+
+    // Handle joining existing room
+    if (joinRoomId && playerName && joinExistingRoom === "true") {
+      setIsFromStakes(true);
+      setShowWelcome(false);
+
+      // Clear the session storage after using it
+      sessionStorage.removeItem("joinRoomId");
+      sessionStorage.removeItem("playerName");
+      sessionStorage.removeItem("joinExistingRoom");
+
+      // Join the existing room
+      handleJoinGame(joinRoomId, playerName);
+      return;
+    }
+
+    // Handle creating room with stakes
+    if (selectedStake && playerName && goToLobby === "true") {
+      setIsFromStakes(true);
+      setShowWelcome(false);
+
+      try {
+        const stakeData = JSON.parse(selectedStake);
+        // Clear the session storage after using it
+        sessionStorage.removeItem("selectedStake");
+        sessionStorage.removeItem("playerName");
+        sessionStorage.removeItem("goToLobby");
+
+        // Create room with the selected stakes and go directly to lobby
+        handleCreateRoomWithStakes(playerName, stakeData);
+      } catch (error) {
+        console.error("Error parsing stake data:", error);
+        // Clear session storage on error
+        sessionStorage.removeItem("selectedStake");
+        sessionStorage.removeItem("playerName");
+        sessionStorage.removeItem("goToLobby");
+        // Fallback to welcome screen
+        setIsFromStakes(false);
+        setShowWelcome(true);
+      }
+    }
   }, []);
 
   // Set isInGame when player joins successfully and sync gameId
@@ -217,7 +268,6 @@ export default function Home() {
         <GameLobby
           onJoinGame={handleJoinGame}
           onCreateRoom={handleCreateRoom}
-          onCreateRoomWithStakes={handleCreateRoomWithStakes}
           isConnected={connectionStatus === "connected"}
           createdRoomId={createdRoomId}
         />
@@ -251,6 +301,7 @@ export default function Home() {
         gameState={gameState}
         currentPlayer={currentPlayer}
         onPlayerAction={handlePlayerAction}
+        onStartGame={handleStartGame}
       />
 
       {/* Connection Status in Game */}
@@ -285,19 +336,6 @@ export default function Home() {
 
       {/* Game Controls */}
       <div className="absolute top-6 right-6 z-50 flex gap-3">
-        {!gameState.isStarted && gameState.players.length >= 2 && (
-          <button
-            onClick={handleStartGame}
-            disabled={isLoading}
-            className="btn-modern bg-gradient-to-r from-green-500 to-green-600 hover:from-green-400 hover:to-green-500 disabled:from-gray-500 disabled:to-gray-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 disabled:transform-none border border-green-400/30"
-          >
-            <span className="flex items-center">
-              <span className="mr-2">🚀</span>
-              Start Game
-            </span>
-          </button>
-        )}
-
         {/* Leave Game Button */}
         <button
           onClick={handleLeaveGame}

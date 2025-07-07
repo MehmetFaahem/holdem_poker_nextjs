@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import { showToast } from "@/utils/toast";
-import { StakeSelection, type StakeData } from "./StakeSelection";
 
 interface GameLobbyProps {
   onJoinGame: (gameId: string, playerName: string) => void;
   onCreateRoom?: (playerName: string) => void;
-  onCreateRoomWithStakes?: (playerName: string, stakeData: StakeData) => void;
   isConnected: boolean;
   createdRoomId?: string | null;
 }
@@ -15,7 +13,6 @@ interface GameLobbyProps {
 export const GameLobby: React.FC<GameLobbyProps> = ({
   onJoinGame,
   onCreateRoom,
-  onCreateRoomWithStakes,
   isConnected,
   createdRoomId,
 }) => {
@@ -23,7 +20,6 @@ export const GameLobby: React.FC<GameLobbyProps> = ({
   const [playerName, setPlayerName] = useState("");
   const [activeTab, setActiveTab] = useState<"join" | "create">("join");
   const [createPlayerName, setCreatePlayerName] = useState("");
-  const [showStakeSelection, setShowStakeSelection] = useState(false);
 
   const handleJoinGame = (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,26 +30,9 @@ export const GameLobby: React.FC<GameLobbyProps> = ({
 
   const handleCreateRoom = (e: React.FormEvent) => {
     e.preventDefault();
-    if (createPlayerName.trim()) {
-      if (onCreateRoomWithStakes) {
-        // Show stake selection screen
-        setShowStakeSelection(true);
-      } else if (onCreateRoom) {
-        // Fallback to old behavior
-        onCreateRoom(createPlayerName.trim());
-      }
+    if (createPlayerName.trim() && onCreateRoom) {
+      onCreateRoom(createPlayerName.trim());
     }
-  };
-
-  const handleStakeSelected = (playerName: string, stakeData: StakeData) => {
-    if (onCreateRoomWithStakes) {
-      onCreateRoomWithStakes(playerName, stakeData);
-      setShowStakeSelection(false);
-    }
-  };
-
-  const handleBackFromStakeSelection = () => {
-    setShowStakeSelection(false);
   };
 
   const generateGameId = () => {
@@ -352,14 +331,6 @@ export const GameLobby: React.FC<GameLobbyProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Stake Selection Component */}
-      <StakeSelection
-        playerName={createPlayerName}
-        onStakeSelected={handleStakeSelected}
-        onBack={handleBackFromStakeSelection}
-        isVisible={showStakeSelection}
-      />
     </div>
   );
 };

@@ -17,6 +17,7 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-blacklisted: var(--font-blacklisted);
+  --font-impact: var(--font-impact);
 }
 
 @media (prefers-color-scheme: light) {
@@ -95,10 +96,10 @@ body {
 @keyframes glow {
   0%,
   100% {
-    box-shadow: 0 0 5px rgba(34, 197, 94, 0.5);
+    box-shadow: 0 0 5px #590000;
   }
   50% {
-    box-shadow: 0 0 20px rgba(34, 197, 94, 0.8), 0 0 30px rgba(34, 197, 94, 0.6);
+    box-shadow: 0 0 20px rgba(111, 94, 0, 0.8), 0 0 30px rgba(148, 126, 1, 0.6);
   }
 }
 

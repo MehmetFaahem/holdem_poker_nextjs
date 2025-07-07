@@ -20,7 +20,7 @@ export const Card: React.FC<CardProps> = ({
     large: "w-20 h-32",
   };
 
-  const cardImage = isHidden || !card ? "/images/back.png" : card.image;
+  const cardImage = isHidden || !card ? "/images/cardback.png" : card.image;
 
   return (
     <div className={`${sizeClasses[size]} ${className} relative`}>
