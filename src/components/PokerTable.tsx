@@ -6,6 +6,7 @@ import { PlayerSeat } from "./PlayerSeat";
 import { Card } from "./Card";
 import { ActionButtons } from "./ActionButtons";
 import { showToast } from "@/utils/toast";
+import PokerActionButton from "./PokerActionButton";
 
 interface PokerTableProps {
   gameState: GameState;
@@ -220,11 +221,11 @@ export const PokerTable: React.FC<PokerTableProps> = ({
       <div className="absolute inset-0 flex items-center justify-center p-4 md:p-8">
         <div className="relative w-full max-w-6xl h-full max-h-[800px] min-h-[600px]">
           {/* Poker Table */}
-          <div className="relative w-full h-full sm:h-[700px] rotate-x-[-38deg] scale-70 lg:scale-100 lg:rotate-x-0">
+          <div className="relative landscape:top-[-20px] md:top-[50px] w-full h-full sm:h-[700px] rotate-x-[-43deg] scale-70 lg:scale-100 lg:rotate-x-0">
             {/* Table Surface - Oval Shape */}
-            <div className="absolute inset-4 md:inset-8 bg-gradient-to-br from-[#4E0507] via-[#4E0507] to-[#4E0507] rounded-full shadow-2xl border-4 md:border-8 border-yellow-900">
+            <div className="absolute inset-4 md:inset-8 bg-gradient-to-br from-[#4E0507] via-[#4E0507] to-[#4E0507] rounded-full shadow-2xl border-4 md:border-8 border-[#4E0507]">
               {/* Inner felt with border */}
-              <div className="absolute inset-2 md:inset-4 bg-gradient-to-br from-[#4E0507] to-[#4E0507] rounded-full border-2 md:border-4 border-yellow-800 shadow-inner">
+              <div className="absolute inset-2 md:inset-4 bg-gradient-to-br from-[#4E0507] to-[#4E0507] rounded-full border-2 md:border-4 border-[#590000] shadow-inner">
                 {/* Lobby State - Center Content */}
                 {isLobbyState ? (
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
@@ -367,17 +368,17 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 {/* Bottom Row - Positions 5, 6 */}
                 {renderPlayerSeat(
                   5,
-                  "bottom-[160px] md:bottom-[0px] left-[70%] transform -translate-x-1/2 -translate-x-12 md:-translate-x-16"
+                  "bottom-[160px] md:bottom-[-60px] landscape:bottom-[0px] left-[70%] transform -translate-x-1/2 -translate-x-12 md:-translate-x-16"
                 )}
                 {renderPlayerSeat(
                   6,
-                  "bottom-[160px] md:bottom-[0px] left-[20%] transform -translate-x-1/2 translate-x-12 md:translate-x-16"
+                  "bottom-[160px] md:bottom-[-60px] landscape:bottom-[0px] left-[20%] landscape:left-[10%] transform -translate-x-1/2 translate-x-12 md:translate-x-16"
                 )}
 
                 {/* Bottom-Left - Position 7 */}
                 {renderPlayerSeat(
                   7,
-                  "bottom-[160px] md:bottom-[150px] left-[-10%] transform -translate-x-1/2 translate-x-12 md:translate-x-16"
+                  "bottom-[160px] md:bottom-[150px] left-[-10%] landscape:left-[-18%] transform -translate-x-1/2 translate-x-12 md:translate-x-16"
                 )}
               </div>
             </div>
@@ -390,7 +391,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
         myPlayer &&
         gameState.gamePhase !== "ended" &&
         gameState.isStarted && (
-          <div className="fixed bottom-4 md:bottom-8 left-1/2 2xl:left-[80%] transform -translate-x-1/2 md:translate-x-0 2xl:translate-x-0 z-50">
+          <div className="fixed  bottom-4 md:bottom-8 left-1/2 2xl:left-[80%] transform -translate-x-1/2 md:translate-x-0 2xl:translate-x-0 z-50">
             <ActionButtons
               gameState={gameState}
               currentPlayer={myPlayer}
@@ -398,6 +399,15 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             />
           </div>
         )}
+
+      {!isCurrentPlayerTurn && (
+        <div className="fixed bottom-4 right-4 flex flex-wrap landscape:w-[100px] landscape:scale-50 landscape:bottom-[-100px] items-center justify-center gap-8 md:gap-10 lg:gap-16 max-w-6xl">
+          <PokerActionButton label="Fold" icon="fold" />
+          <PokerActionButton label="Check /Fold" icon="check-fold" />
+          <PokerActionButton label="Check" icon="check" />
+          <PokerActionButton label="Call Any" icon="call" />
+        </div>
+      )}
 
       {/* Game Status Overlay - Fixed Position */}
       <div className="fixed scale-80 top-5 md:top-12 left-4 md:left-2 glass-dark p-3 rounded-xl z-40">

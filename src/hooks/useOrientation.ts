@@ -43,16 +43,16 @@ export function useOrientation(): OrientationState {
           angle,
         });
 
-        // Force portrait orientation on mobile devices when in game
-        if (isMobileDevice && !isPortraitMode) {
-          // Try to lock to portrait if the Screen Orientation API is available
+        // Force landscape orientation on mobile devices when in game
+        if (isMobileDevice && isPortraitMode) {
+          // Try to lock to landscape if the Screen Orientation API is available
           if ("screen" in window && "orientation" in window.screen) {
             const screenOrientation = window.screen.orientation as any;
             if (typeof screenOrientation.lock === "function") {
               screenOrientation
-                .lock("portrait-primary")
+                .lock("landscape-primary")
                 .catch((err: unknown) => {
-                  console.log("Portrait lock not supported or failed:", err);
+                  console.log("Landscape lock not supported or failed:", err);
                 });
             }
           }

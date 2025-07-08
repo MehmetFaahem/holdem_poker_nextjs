@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
 import { GameState, Player, ChatMessage, ChatState } from "@/types/poker";
 
 interface PlayerAction {
@@ -16,6 +16,7 @@ interface GameStateSlice {
   isLoading: boolean;
   recentActions: PlayerAction[];
   chat: ChatState;
+  quickAction: string | null;
 }
 
 const initialState: GameStateSlice = {
@@ -30,6 +31,7 @@ const initialState: GameStateSlice = {
     isOpen: false,
     unreadCount: 0,
   },
+  quickAction: null,
 };
 
 const gameSlice = createSlice({
@@ -248,6 +250,15 @@ const gameSlice = createSlice({
       state.chat.unreadCount = 0;
     },
 
+    // Quick actions for spectators
+    setQuickAction: (state, action: PayloadAction<string | null>) => {
+      state.quickAction = action.payload;
+    },
+
+    clearQuickAction: (state) => {
+      state.quickAction = null;
+    },
+
     // Reset state
     resetGame: (state) => {
       state.gameState = null;
@@ -260,6 +271,7 @@ const gameSlice = createSlice({
         isOpen: false,
         unreadCount: 0,
       };
+      state.quickAction = null;
     },
   },
 });
@@ -283,6 +295,8 @@ export const {
   closeChat,
   clearUnreadCount,
   clearChatMessages,
+  setQuickAction,
+  clearQuickAction,
   resetGame,
 } = gameSlice.actions;
 

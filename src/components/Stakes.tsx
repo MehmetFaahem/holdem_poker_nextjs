@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, EffectCoverflow } from "swiper/modules";
 import type { Swiper as SwiperType } from "swiper";
+import { useAppDispatch, useAppSelector } from "@/hooks/useAppSelector";
+import { fetchStakes, Stake } from "@/store/stakesSlice";
 
 // Import Swiper styles
 import "swiper/css";
@@ -19,67 +21,11 @@ export interface StakeData {
   startingChips: number;
 }
 
-interface StakeCard {
-  id: number;
-  stakes: string;
-  buyIn: string;
-  minCall: number;
-  maxCall: number;
-  startingChips: number;
-  image: string;
-}
-
-const stakeCards: StakeCard[] = [
-  {
-    id: 1,
-    stakes: "$25K/$75K",
-    buyIn: "$2M - $10M",
-    minCall: 25000,
-    maxCall: 75000,
-    startingChips: 2000000,
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/676484fa5e92e4a8ab9696be1e5c9aa6046dded9?width=730",
-  },
-  {
-    id: 2,
-    stakes: "$50K/$100K",
-    buyIn: "$2M - $10M",
-    minCall: 50000,
-    maxCall: 100000,
-    startingChips: 2000000,
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/d6085ad4e9c281bdcf12066c25d783e3c9af1ef3?width=912",
-  },
-  {
-    id: 3,
-    stakes: "$10K/$50K",
-    buyIn: "$2M - $10M",
-    minCall: 10000,
-    maxCall: 50000,
-    startingChips: 2000000,
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/0379b9025e0bf263cb6d3d6ea666d6de6d679d46?width=730",
-  },
-  {
-    id: 4,
-    stakes: "$5K/$25K",
-    buyIn: "$1M - $5M",
-    minCall: 5000,
-    maxCall: 25000,
-    startingChips: 1000000,
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/d6085ad4e9c281bdcf12066c25d783e3c9af1ef3?width=912",
-  },
-  {
-    id: 5,
-    stakes: "$100K/$200K",
-    buyIn: "$5M - $20M",
-    minCall: 100000,
-    maxCall: 200000,
-    startingChips: 5000000,
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/0379b9025e0bf263cb6d3d6ea666d6de6d679d46?width=730",
-  },
+// Define stake card image mapping
+const stakeCardImages = [
+  "https://cdn.builder.io/api/v1/image/assets/TEMP/676484fa5e92e4a8ab9696be1e5c9aa6046dded9?width=730",
+  "https://cdn.builder.io/api/v1/image/assets/TEMP/d6085ad4e9c281bdcf12066c25d783e3c9af1ef3?width=912",
+  "https://cdn.builder.io/api/v1/image/assets/TEMP/0379b9025e0bf263cb6d3d6ea666d6de6d679d46?width=730",
 ];
 
 export default function Stakes() {
@@ -87,6 +33,22 @@ export default function Stakes() {
   const swiperRef = useRef<SwiperType | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+
+  const dispatch = useAppDispatch();
+  const { stakes, loading, error } = useAppSelector((state) => state.stakes);
+  const { token } = useAppSelector((state) => state.auth);
+
+  // Fetch stakes data on component mount
+  useEffect(() => {
+    dispatch(fetchStakes());
+  }, [dispatch]);
+
+  // Redirect to login if authentication error
+  useEffect(() => {
+    if (error === "Authentication required" && !token) {
+      router.push("/auth/login");
+    }
+  }, [error, token, router]);
 
   const handlePrevious = () => {
     swiperRef.current?.slidePrev();
@@ -96,16 +58,16 @@ export default function Stakes() {
     swiperRef.current?.slideNext();
   };
 
-  const handleStakeSelection = (card: StakeCard) => {
+  const handleStakeSelection = (stake: Stake) => {
     setIsLoading(true);
 
     // Store the selected stake data for the game lobby
     const stakeData = {
-      stakes: card.stakes,
-      buyIn: card.buyIn,
-      minCall: card.minCall,
-      maxCall: card.maxCall,
-      startingChips: card.startingChips,
+      stakes: `${stake.blind.small_formatted}/${stake.blind.big_formatted}`,
+      buyIn: `${stake.buy_in.min_formatted} - ${stake.buy_in.max_formatted}`,
+      minCall: stake.blind.small,
+      maxCall: stake.blind.big,
+      startingChips: stake.buy_in.min,
     };
 
     // Store stake data and use default player name
@@ -132,7 +94,9 @@ export default function Stakes() {
       case "Enter":
       case " ":
         event.preventDefault();
-        handleStakeSelection(stakeCards[currentIndex]);
+        if (stakes.length > 0) {
+          handleStakeSelection(stakes[currentIndex]);
+        }
         break;
     }
   };
@@ -141,7 +105,7 @@ export default function Stakes() {
   React.useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [currentIndex]);
+  }, [currentIndex, stakes]);
 
   return (
     <div
@@ -152,16 +116,37 @@ export default function Stakes() {
       }}
     >
       {/* Loading Overlay */}
-      {isLoading && (
+      {(isLoading || loading) && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[99999] backdrop-blur-sm">
           <div className="text-center text-white px-4">
             <div className="loading-spinner w-12 h-12 sm:w-16 sm:h-16 border-4 border-gray-600 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
             <h2 className="text-xl sm:text-2xl font-bold mb-2">
-              Creating Room...
+              {loading ? "Loading Stakes..." : "Creating Room..."}
             </h2>
             <p className="text-gray-300 text-sm sm:text-base">
-              Setting up your poker room with the selected stakes
+              {loading
+                ? "Fetching available stakes"
+                : "Setting up your poker room with the selected stakes"}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Error display */}
+      {error && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[99999] backdrop-blur-sm">
+          <div className="text-center text-white px-4">
+            <div className="text-red-500 text-4xl mb-4">⚠️</div>
+            <h2 className="text-xl sm:text-2xl font-bold mb-2">
+              Error Loading Stakes
+            </h2>
+            <p className="text-gray-300 text-sm sm:text-base mb-4">{error}</p>
+            <button
+              onClick={() => dispatch(fetchStakes())}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+            >
+              Try Again
+            </button>
           </div>
         </div>
       )}
@@ -227,118 +212,124 @@ export default function Stakes() {
       <div className="relative z-10 w-full max-w-7xl mx-auto px-2 sm:px-4">
         {/* Swiper slider - improved mobile spacing */}
         <div className="mb-8 sm:mb-12 md:mb-16 lg:mb-20 px-[10%] sm:px-[8%] md:px-[10%]">
-          <Swiper
-            onSwiper={(swiper) => (swiperRef.current = swiper)}
-            onSlideChange={(swiper) => setCurrentIndex(swiper.realIndex)}
-            modules={[Navigation, EffectCoverflow]}
-            spaceBetween={10}
-            slidesPerView={1}
-            centeredSlides={true}
-            effect="coverflow"
-            coverflowEffect={{
-              rotate: 0,
-              stretch: 0,
-              depth: 80,
-              modifier: 1,
-              slideShadows: false,
-            }}
-            breakpoints={{
-              480: {
-                slidesPerView: 1.2,
-                spaceBetween: 15,
-                coverflowEffect: {
-                  depth: 60,
+          {stakes.length > 0 && (
+            <Swiper
+              onSwiper={(swiper) => (swiperRef.current = swiper)}
+              onSlideChange={(swiper) => setCurrentIndex(swiper.realIndex)}
+              modules={[Navigation, EffectCoverflow]}
+              spaceBetween={10}
+              slidesPerView={1}
+              centeredSlides={true}
+              effect="coverflow"
+              coverflowEffect={{
+                rotate: 0,
+                stretch: 0,
+                depth: 80,
+                modifier: 1,
+                slideShadows: false,
+              }}
+              breakpoints={{
+                480: {
+                  slidesPerView: 1.2,
+                  spaceBetween: 15,
+                  coverflowEffect: {
+                    depth: 60,
+                  },
                 },
-              },
-              640: {
-                slidesPerView: 1.5,
-                spaceBetween: 20,
-                coverflowEffect: {
-                  depth: 80,
+                640: {
+                  slidesPerView: 1.5,
+                  spaceBetween: 20,
+                  coverflowEffect: {
+                    depth: 80,
+                  },
                 },
-              },
-              768: {
-                slidesPerView: 2,
-                spaceBetween: 30,
-                coverflowEffect: {
-                  depth: 100,
+                768: {
+                  slidesPerView: 2,
+                  spaceBetween: 30,
+                  coverflowEffect: {
+                    depth: 100,
+                  },
                 },
-              },
-              1024: {
-                slidesPerView: 3,
-                spaceBetween: 40,
-                coverflowEffect: {
-                  depth: 100,
+                1024: {
+                  slidesPerView: 3,
+                  spaceBetween: 40,
+                  coverflowEffect: {
+                    depth: 100,
+                  },
                 },
-              },
-              1280: {
-                slidesPerView: 3,
-                spaceBetween: 60,
-                coverflowEffect: {
-                  depth: 100,
+                1280: {
+                  slidesPerView: 3,
+                  spaceBetween: 60,
+                  coverflowEffect: {
+                    depth: 100,
+                  },
                 },
-              },
-            }}
-            className="!overflow-visible"
-            loop={true}
-          >
-            {stakeCards.map((card, index) => (
-              <SwiperSlide key={card.id} className="!h-auto">
-                {({ isActive }) => (
-                  <div
-                    className={`relative cursor-pointer ${
-                      isActive
-                        ? "transform scale-105 sm:scale-110"
-                        : "transform scale-95 sm:scale-95 opacity-70 sm:opacity-80"
-                    } transition-all duration-300 touch-manipulation`}
-                    onClick={() => handleStakeSelection(card)} // Single tap on mobile
-                    onDoubleClick={() => handleStakeSelection(card)} // Double click on desktop
-                  >
-                    {/* Card container */}
+              }}
+              className="!overflow-visible"
+              loop={true}
+            >
+              {stakes.map((stake, index) => (
+                <SwiperSlide key={stake.id} className="!h-auto">
+                  {({ isActive }) => (
                     <div
-                      className={`relative w-full aspect-[0.75] sm:aspect-[0.8] rounded-2xl sm:rounded-3xl overflow-hidden backdrop-blur-md transition-all duration-300 ${
+                      className={`relative cursor-pointer ${
                         isActive
-                          ? "border-2 border-white shadow-2xl"
-                          : "border border-white/20"
-                      }`}
-                      style={{
-                        background:
-                          "linear-gradient(180deg, rgba(0, 0, 0, 0.20) 0%, rgba(0, 0, 0, 0.10) 100%)",
-                      }}
+                          ? "transform scale-105 sm:scale-110"
+                          : "transform scale-95 sm:scale-95 opacity-70 sm:opacity-80"
+                      } transition-all duration-300 touch-manipulation`}
+                      onClick={() => handleStakeSelection(stake)} // Single tap on mobile
+                      onDoubleClick={() => handleStakeSelection(stake)} // Double click on desktop
                     >
-                      {/* Stakes section */}
-                      <div className="absolute top-7 md:top-8 left-1/2 -translate-x-1/2 text-center z-10">
-                        <div className="text-[#991D1D] text-2xl font-blacklisted tracking-wider mb-1 sm:mb-2 md:mb-4">
-                          STAKES
-                        </div>
-                        <div className="text-white font-impact text-6xl md:text-5xl mt-6 md:mt-4">
-                          {card.stakes}
-                        </div>
-                      </div>
-
-                      {/* Card image and buy-in section */}
-                      <div className="absolute bottom-0 left-0 right-0 h-3/5 overflow-hidden rounded-b-2xl sm:rounded-b-3xl">
-                        <img
-                          src={card.image}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          style={{ mixBlendMode: "luminosity" }}
-                        />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                          <div className="text-white text-2xl sm:text-base md:text-lg lg:text-2xl font-blacklisted tracking-wider mb-1 sm:mb-2 md:mb-3">
-                            BUY IN
+                      {/* Card container */}
+                      <div
+                        className={`relative w-full aspect-[0.75] sm:aspect-[0.8] rounded-2xl sm:rounded-3xl overflow-hidden backdrop-blur-md transition-all duration-300 ${
+                          isActive
+                            ? "border-2 border-white shadow-2xl"
+                            : "border border-white/20"
+                        }`}
+                        style={{
+                          background:
+                            "linear-gradient(180deg, rgba(0, 0, 0, 0.20) 0%, rgba(0, 0, 0, 0.10) 100%)",
+                        }}
+                      >
+                        {/* Stakes section */}
+                        <div className="absolute top-7 md:top-8 left-1/2 -translate-x-1/2 text-center z-10">
+                          <div className="text-[#991D1D] text-2xl font-blacklisted tracking-wider mb-1 sm:mb-2 md:mb-4">
+                            STAKES
                           </div>
-                          <div className="text-[#991D1D] font-impact text-6xl md:text-5xl mt-6 md:mt-4">
-                            {card.buyIn}
+                          <div className="text-white font-impact text-6xl md:text-5xl mt-6 md:mt-4">
+                            {stake.blind.small_formatted}/
+                            {stake.blind.big_formatted}
+                          </div>
+                        </div>
+
+                        {/* Card image and buy-in section */}
+                        <div className="absolute bottom-0 left-0 right-0 h-3/5 overflow-hidden rounded-b-2xl sm:rounded-b-3xl">
+                          <img
+                            src={
+                              stakeCardImages[index % stakeCardImages.length]
+                            }
+                            alt=""
+                            className="w-full h-full object-cover"
+                            style={{ mixBlendMode: "luminosity" }}
+                          />
+                          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                            <div className="text-white text-2xl sm:text-base md:text-lg lg:text-2xl font-blacklisted tracking-wider mb-1 sm:mb-2 md:mb-3">
+                              BUY IN
+                            </div>
+                            <div className="text-[#991D1D] font-impact text-6xl md:text-5xl mt-6 md:mt-4">
+                              {stake.buy_in.min_formatted} -{" "}
+                              {stake.buy_in.max_formatted}
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </SwiperSlide>
-            ))}
-          </Swiper>
+                  )}
+                </SwiperSlide>
+              ))}
+            </Swiper>
+          )}
         </div>
 
         {/* Instructions - improved mobile text sizing */}

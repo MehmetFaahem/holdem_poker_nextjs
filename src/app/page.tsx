@@ -47,8 +47,8 @@ export default function Home() {
   // Handle orientation lock on mobile devices
   useEffect(() => {
     if (orientation.isMobile && !showWelcome) {
-      // Try to lock orientation to portrait when entering the game on mobile
-      lockOrientation("portrait").catch((err) => {
+      // Try to lock orientation to landscape when entering the game on mobile
+      lockOrientation("landscape").catch((err) => {
         console.log("Could not lock orientation:", err);
       });
     }
@@ -255,7 +255,7 @@ export default function Home() {
         {/* Landscape Warning for Mobile */}
         <LandscapeWarning
           isVisible={
-            orientation.isMobile && orientation.isLandscape && !showWelcome
+            orientation.isMobile && orientation.isPortrait && !showWelcome
           }
         />
 
@@ -310,7 +310,7 @@ export default function Home() {
       {/* Landscape Warning for Mobile */}
       <LandscapeWarning
         isVisible={
-          orientation.isMobile && orientation.isLandscape && !showWelcome
+          orientation.isMobile && orientation.isPortrait && !showWelcome
         }
       />
 

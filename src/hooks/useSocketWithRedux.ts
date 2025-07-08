@@ -60,7 +60,7 @@ export const useSocketWithRedux = () => {
     socket.on("disconnect", () => {
       console.log("Disconnected from socket server");
       dispatch(setConnectionStatus("disconnected"));
-      showToast.warning("Disconnected from server");
+      // showToast.warning("Disconnected from server");
     });
 
     socket.on("connect_error", (error) => {
@@ -215,7 +215,7 @@ export const useSocketWithRedux = () => {
         showToast.gameUpdate("Starting game...");
       } else {
         console.log("Cannot start game - not connected");
-        showToast.error("Not connected to server");
+        // showToast.error("Not connected to server");
       }
     },
     [connectionStatus]

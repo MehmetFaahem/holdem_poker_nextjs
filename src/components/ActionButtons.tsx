@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { GameState, Player } from "@/types/poker";
 import { useAppSelector } from "@/hooks/useAppSelector";
+import { useDispatch } from "react-redux";
+import { setQuickAction, clearQuickAction } from "@/store/gameSlice";
 import { RaiseBetModal } from "./RaiseBetModal";
+import PokerActionButton from "./PokerActionButton";
 
 interface ActionButtonsProps {
   gameState: GameState;
@@ -15,7 +18,7 @@ interface ActionButtonsProps {
   disabled?: boolean;
 }
 
-interface PokerActionButtonProps {
+interface GameActionButtonProps {
   label: string;
   icon: React.ReactNode;
   backgroundColor: string;
@@ -24,14 +27,14 @@ interface PokerActionButtonProps {
   disabled?: boolean;
 }
 
-function PokerActionButton({
+function GameActionButton({
   label,
   icon,
   backgroundColor,
   onClick,
   className = "",
   disabled = false,
-}: PokerActionButtonProps) {
+}: GameActionButtonProps) {
   return (
     <div
       className={`flex flex-col items-center gap-2 md:gap-3 w-16 md:w-24 ${className}`}
@@ -61,9 +64,10 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   disabled = false,
 }) => {
   const [isRaiseModalOpen, setIsRaiseModalOpen] = useState(false);
+  const dispatch = useDispatch();
 
-  // Get loading state from Redux
-  const { isLoading } = useAppSelector((state) => state.game);
+  // Get loading state and quick action from Redux
+  const { isLoading, quickAction } = useAppSelector((state) => state.game);
 
   // Calculate action availability based on proper poker rules
   const callAmount = Math.max(
@@ -196,9 +200,118 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
 
   const actionButtons = getActionButtons();
 
+  // Quick action handlers for spectators
+  const handleQuickAction = (action: string) => {
+    if (quickAction === action) {
+      dispatch(clearQuickAction());
+    } else {
+      dispatch(setQuickAction(action));
+    }
+  };
+
+  // Get available quick actions based on game state
+  const getQuickActions = () => {
+    const actions = [];
+
+    // Always show fold
+    actions.push({
+      label: "Fold",
+      icon: "fold" as const,
+      onClick: () => handleQuickAction("fold"),
+      isSelected: quickAction === "fold",
+    });
+
+    // Check/Fold option
+    if (canCheck) {
+      actions.push({
+        label: "Check/Fold",
+        icon: "check-fold" as const,
+        onClick: () => handleQuickAction("check-fold"),
+        isSelected: quickAction === "check-fold",
+      });
+    }
+
+    // Check option
+    if (canCheck) {
+      actions.push({
+        label: "Check",
+        icon: "check" as const,
+        onClick: () => handleQuickAction("check"),
+        isSelected: quickAction === "check",
+      });
+    }
+
+    // Call option
+    if (canCall) {
+      actions.push({
+        label: "Call Any",
+        icon: "call" as const,
+        onClick: () => handleQuickAction("call"),
+        isSelected: quickAction === "call",
+      });
+    }
+
+    return actions;
+  };
+
+  const quickActions = getQuickActions();
+
+  // Show spectator buttons when it's not the current player's turn
+  if (
+    !isCurrentTurn &&
+    gameState.isStarted &&
+    !currentPlayer.isFolded &&
+    gameState.gamePhase !== "ended"
+  ) {
+    return (
+      <div className="spectator-buttons-container glass-dark p-3 md:p-4 rounded-xl backdrop-blur-xl animate-slideInUp max-w-lg w-full">
+        {/* Turn Indicator */}
+        <div className="text-center mb-3 md:mb-4">
+          <div className="flex items-center justify-center space-x-2 text-amber-400">
+            <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
+            <span className="text-xs font-bold">
+              Pre-select your next action
+            </span>
+          </div>
+        </div>
+
+        {/* Quick Action Buttons */}
+        <div className="flex justify-center items-center gap-2 md:gap-4 mb-3 md:mb-4">
+          {quickActions.map((action, index) => (
+            <PokerActionButton
+              key={index}
+              label={action.label}
+              icon={action.icon}
+              onClick={action.onClick}
+              isSelected={action.isSelected}
+            />
+          ))}
+        </div>
+
+        {/* Selected action indicator */}
+        {quickAction && (
+          <div className="text-center">
+            <div className="text-xs text-green-400 font-medium">
+              ✓ {quickAction.charAt(0).toUpperCase() + quickAction.slice(1)}{" "}
+              pre-selected
+            </div>
+          </div>
+        )}
+
+        {/* Player info - Compact */}
+        <div className="mt-3 pt-3 border-t border-white/10">
+          <div className="flex justify-between text-xs text-white/60">
+            <span>Chips: ${currentPlayer.chips.toLocaleString()}</span>
+            <span>Pot: ${gameState.pot.toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      <div className="action-buttons-container glass-dark p-3 md:p-4 rounded-xl backdrop-blur-xl animate-slideInUp max-w-md w-full">
+      <div className="action-buttons-container  glass-dark p-3 md:p-4 rounded-xl backdrop-blur-xl animate-slideInUp max-w-md w-full">
         {/* Turn Indicator */}
         <div className="text-center mb-3 md:mb-4">
           {!isCurrentTurn ? (
@@ -221,7 +334,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         {/* Action Buttons */}
         <div className="flex justify-center items-center gap-3 md:gap-6 mb-3 md:mb-4">
           {actionButtons.map((action, index) => (
-            <PokerActionButton
+            <GameActionButton
               key={index}
               label={action.label}
               icon={action.icon}

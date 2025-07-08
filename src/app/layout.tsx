@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { ReduxProvider } from "@/components/ReduxProvider";
+import AuthProvider from "@/components/AuthProvider";
 import { ConfirmationModalProvider } from "@/contexts/ConfirmationModalContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
   description:
     "Play Texas Hold'em poker online with friends. Real-time multiplayer poker game with professional interface and responsive design.",
   viewport:
-    "width=device-width, initial-scale=1.0, orientation=portrait, user-scalable=no",
+    "width=device-width, initial-scale=1.0, orientation=landscape, user-scalable=no",
 };
 
 export default function RootLayout({
@@ -47,9 +48,9 @@ export default function RootLayout({
       <head>
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1.0, orientation=portrait, user-scalable=no"
+          content="width=device-width, initial-scale=1.0, orientation=landscape, user-scalable=no"
         />
-        <meta name="screen-orientation" content="portrait" />
+        <meta name="screen-orientation" content="landscape" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta
@@ -61,23 +62,25 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${blacklisted.variable} ${impact.variable} antialiased`}
       >
         <ReduxProvider>
-          <ConfirmationModalProvider>
-            {children}
-            <ToastContainer
-              position="top-right"
-              autoClose={5000}
-              hideProgressBar={false}
-              newestOnTop={false}
-              closeOnClick
-              rtl={false}
-              pauseOnFocusLoss
-              draggable
-              pauseOnHover
-              theme="dark"
-              toastClassName="!bg-slate-800/95 !border !border-white/10 !backdrop-blur-sm !text-white !font-medium"
-              progressClassName="!bg-gradient-to-r !from-blue-500 !to-purple-500"
-            />
-          </ConfirmationModalProvider>
+          <AuthProvider>
+            <ConfirmationModalProvider>
+              {children}
+              <ToastContainer
+                position="top-right"
+                autoClose={5000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="dark"
+                toastClassName="!bg-slate-800/95 !border !border-white/10 !backdrop-blur-sm !text-white !font-medium"
+                progressClassName="!bg-gradient-to-r !from-blue-500 !to-purple-500"
+              />
+            </ConfirmationModalProvider>
+          </AuthProvider>
         </ReduxProvider>
       </body>
     </html>
