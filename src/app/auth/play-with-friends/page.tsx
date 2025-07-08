@@ -29,7 +29,7 @@ export default function PlayWithFriends() {
 
     // Navigate to the main game page to join the room
     setTimeout(() => {
-      router.push("/");
+      router.push("/game");
     }, 1000);
   };
 

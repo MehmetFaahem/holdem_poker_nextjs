@@ -77,7 +77,7 @@ export default function Stakes() {
 
     // Navigate to the main game page (lobby)
     setTimeout(() => {
-      router.push("/");
+      router.push("/game");
     }, 1500);
   };
 

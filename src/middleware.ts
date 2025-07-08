@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // Define paths that require authentication
-const protectedPaths = ["/stakes", "/play-with-friends"];
+const protectedPaths = ["/stakes", "/play-with-friends", "/game"];
 
 // Define paths that are accessible only for non-authenticated users
 const authPaths = ["/auth/login", "/auth/create-account"];
@@ -24,6 +24,11 @@ export function middleware(request: NextRequest) {
 
   // Redirect authenticated users away from auth pages
   if (authPaths.some((authPath) => path === authPath) && token) {
+    return NextResponse.redirect(new URL("/stakes", request.url));
+  }
+
+  // Redirect authenticated users from root path to stakes
+  if (path === "/" && token) {
     return NextResponse.redirect(new URL("/stakes", request.url));
   }
 

@@ -8,11 +8,21 @@ interface User {
   created_at: string;
 }
 
+interface ValidationErrors {
+  [key: string]: string[];
+}
+
+interface ErrorResponse {
+  message: string;
+  errors?: ValidationErrors;
+}
+
 interface AuthState {
   user: User | null;
   token: string | null;
   loading: boolean;
   error: string | null;
+  validationErrors: ValidationErrors | null;
 }
 
 const initialState: AuthState = {
@@ -20,6 +30,7 @@ const initialState: AuthState = {
   token: null,
   loading: false,
   error: null,
+  validationErrors: null,
 };
 
 // Get base URL from environment variable
@@ -46,7 +57,11 @@ export const loginUser = createAsyncThunk(
       const data = await response.json();
 
       if (!response.ok) {
-        return rejectWithValue(data.message || "Login failed");
+        // Return both the message and validation errors
+        return rejectWithValue({
+          message: data.message || "Login failed",
+          errors: data.errors || null,
+        });
       }
 
       // Store token in cookie for SSR compatibility
@@ -57,7 +72,9 @@ export const loginUser = createAsyncThunk(
 
       return data;
     } catch (error) {
-      return rejectWithValue("Network error. Please try again.");
+      return rejectWithValue({
+        message: "Network error. Please try again.",
+      });
     }
   }
 );
@@ -86,12 +103,18 @@ export const registerUser = createAsyncThunk(
       const data = await response.json();
 
       if (!response.ok) {
-        return rejectWithValue(data.message || "Registration failed");
+        // Return both the message and validation errors
+        return rejectWithValue({
+          message: data.message || "Registration failed",
+          errors: data.errors || null,
+        });
       }
 
       return data;
     } catch (error) {
-      return rejectWithValue("Network error. Please try again.");
+      return rejectWithValue({
+        message: "Network error. Please try again.",
+      });
     }
   }
 );
@@ -116,6 +139,7 @@ const authSlice = createSlice({
   reducers: {
     clearError: (state) => {
       state.error = null;
+      state.validationErrors = null;
     },
     setCredentials: (
       state,
@@ -137,6 +161,7 @@ const authSlice = createSlice({
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
         state.error = null;
+        state.validationErrors = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
@@ -145,7 +170,9 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload as string;
+        const payload = action.payload as ErrorResponse;
+        state.error = payload.message;
+        state.validationErrors = payload.errors || null;
       });
 
     // Register cases
@@ -153,6 +180,7 @@ const authSlice = createSlice({
       .addCase(registerUser.pending, (state) => {
         state.loading = true;
         state.error = null;
+        state.validationErrors = null;
       })
       .addCase(registerUser.fulfilled, (state, action) => {
         state.loading = false;
@@ -160,7 +188,9 @@ const authSlice = createSlice({
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload as string;
+        const payload = action.payload as ErrorResponse;
+        state.error = payload.message;
+        state.validationErrors = payload.errors || null;
       });
 
     // Logout cases

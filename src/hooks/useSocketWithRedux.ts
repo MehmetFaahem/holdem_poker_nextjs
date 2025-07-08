@@ -154,7 +154,7 @@ export const useSocketWithRedux = () => {
         socketRef.current.emit("join-game", { gameId, playerName });
         showToast.info(`Joining game ${gameId}...`);
       } else {
-        showToast.error("Not connected to server");
+        // showToast.error("Not connected to server");
       }
     },
     [connectionStatus]
@@ -180,7 +180,7 @@ export const useSocketWithRedux = () => {
           `Creating room with ${stakeData.stakes} stakes...`
         );
       } else {
-        showToast.error("Not connected to server");
+        // showToast.error("Not connected to server");
       }
     },
     [connectionStatus]
@@ -230,7 +230,7 @@ export const useSocketWithRedux = () => {
       amount?: number
     ) => {
       if (!socketRef.current || connectionStatus !== "connected") {
-        showToast.error("Not connected to server");
+        // showToast.error("Not connected to server");
         return;
       }
 
@@ -315,7 +315,7 @@ export const useSocketWithRedux = () => {
   const sendChatMessage = useCallback(
     (gameId: string, message: string) => {
       if (!socketRef.current || connectionStatus !== "connected") {
-        showToast.error("Not connected to server");
+        // showToast.error("Not connected to server");
         return;
       }
 
