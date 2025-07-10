@@ -1,7 +1,33 @@
 import { toast } from "react-toastify";
 
+// Track recent messages to prevent duplicates
+const recentMessages = new Map<string, number>();
+const DUPLICATE_TIMEOUT = 3000; // 3 seconds
+
+const shouldShowToast = (message: string): boolean => {
+  const now = Date.now();
+  const lastShown = recentMessages.get(message);
+
+  if (lastShown && now - lastShown < DUPLICATE_TIMEOUT) {
+    return false; // Don't show duplicate within timeout period
+  }
+
+  recentMessages.set(message, now);
+
+  // Clean up old entries
+  for (const [msg, timestamp] of recentMessages.entries()) {
+    if (now - timestamp > DUPLICATE_TIMEOUT) {
+      recentMessages.delete(msg);
+    }
+  }
+
+  return true;
+};
+
 export const showToast = {
   success: (message: string) => {
+    if (!shouldShowToast(message)) return;
+
     toast.success(message, {
       position: "top-right",
       autoClose: 3000,
@@ -12,6 +38,8 @@ export const showToast = {
   },
 
   error: (message: string) => {
+    if (!shouldShowToast(message)) return;
+
     toast.error(message, {
       position: "top-right",
       autoClose: 5000,
@@ -22,6 +50,8 @@ export const showToast = {
   },
 
   warning: (message: string) => {
+    if (!shouldShowToast(message)) return;
+
     toast.warning(message, {
       position: "top-right",
       autoClose: 4000,
@@ -32,6 +62,8 @@ export const showToast = {
   },
 
   info: (message: string) => {
+    if (!shouldShowToast(message)) return;
+
     toast.info(message, {
       position: "top-right",
       autoClose: 3000,
@@ -43,6 +75,8 @@ export const showToast = {
 
   // Custom poker-specific toasts
   chips: (message: string) => {
+    if (!shouldShowToast(message)) return;
+
     toast.error(`💰 ${message}`, {
       position: "top-right",
       autoClose: 4000,
@@ -53,6 +87,8 @@ export const showToast = {
   },
 
   action: (message: string) => {
+    if (!shouldShowToast(message)) return;
+
     toast.info(`🎲 ${message}`, {
       position: "top-right",
       autoClose: 2000,
@@ -63,6 +99,8 @@ export const showToast = {
   },
 
   gameUpdate: (message: string) => {
+    if (!shouldShowToast(message)) return;
+
     toast.success(`🃏 ${message}`, {
       position: "top-center",
       autoClose: 2000,

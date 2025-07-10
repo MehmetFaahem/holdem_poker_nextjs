@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { registerUser } from "@/store/authSlice";
+import { registerUser, clearError } from "@/store/authSlice";
 import { AppDispatch, RootState } from "@/store";
 import { showToast } from "@/utils/toast";
 
@@ -34,14 +34,16 @@ export default function CreateAccount() {
     }
   }, [user, router]);
 
-  // Show error toast if registration fails
+  // Handle auth errors - show toast only for server errors, not validation errors
   useEffect(() => {
-    if (error) {
+    if (error && !validationErrors) {
+      // Only show general error toast if there are no validation errors
+      // This prevents duplicate toasts when both error and validationErrors exist
       showToast.error(error);
     }
-  }, [error]);
+  }, [error, validationErrors]);
 
-  // Show validation errors
+  // Handle validation errors from server
   useEffect(() => {
     if (validationErrors) {
       // Display each validation error as a separate toast
@@ -52,6 +54,13 @@ export default function CreateAccount() {
       });
     }
   }, [validationErrors]);
+
+  // Clear errors when component unmounts or when starting a new submission
+  useEffect(() => {
+    return () => {
+      dispatch(clearError());
+    };
+  }, [dispatch]);
 
   const validateField = (name: string, value: string) => {
     let errorMessage = "";
@@ -130,8 +139,8 @@ export default function CreateAccount() {
 
       if (errorMessage) {
         isValid = false;
-        // Show toast for each error
-        showToast.error(errorMessage);
+        // Don't show toast here - validation errors are shown inline
+        // This prevents duplicate toasts when the same validation fails
       }
     });
 
@@ -142,8 +151,13 @@ export default function CreateAccount() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Clear any previous errors before submitting
+    dispatch(clearError());
+
     // Validate form before submission
     if (!validateForm()) {
+      // Show a single toast for client-side validation failure
+      showToast.error("Please fix the errors above before submitting");
       return;
     }
 
@@ -153,6 +167,7 @@ export default function CreateAccount() {
       showToast.success("Account created successfully!");
       router.push("/auth/login");
     }
+    // Note: Error handling is done by the useEffect hooks above
   };
 
   return (

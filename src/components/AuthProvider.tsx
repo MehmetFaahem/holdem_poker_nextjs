@@ -54,7 +54,7 @@ export default function AuthProvider({ children }: AuthProviderProps) {
       getUserData();
     } else {
       // If no token and on protected route, redirect to login
-      const protectedPaths = ["/stakes", "/play-with-friends"];
+      const protectedPaths = ["/stakes", "/play-with-friends", "/game"];
       if (
         pathname &&
         protectedPaths.some((path) => pathname.startsWith(path))

@@ -221,7 +221,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
       <div className="absolute inset-0 flex items-center justify-center p-4 md:p-8">
         <div className="relative w-full max-w-6xl h-full max-h-[800px] min-h-[600px]">
           {/* Poker Table */}
-          <div className="relative landscape:top-[-20px] md:top-[50px] w-full h-full sm:h-[700px] rotate-x-[-43deg] scale-70 lg:scale-100 lg:rotate-x-0">
+          <div className="relative top-[-20px] lg:top-[50px] w-full h-full sm:h-[700px] rotate-x-[-43deg] scale-70 lg:scale-100 lg:rotate-x-0">
             {/* Table Surface - Oval Shape */}
             <div className="absolute inset-4 md:inset-8 bg-gradient-to-br from-[#4E0507] via-[#4E0507] to-[#4E0507] rounded-full shadow-2xl border-4 md:border-8 border-[#4E0507]">
               {/* Inner felt with border */}
@@ -391,7 +391,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
         myPlayer &&
         gameState.gamePhase !== "ended" &&
         gameState.isStarted && (
-          <div className="fixed  bottom-4 md:bottom-8 left-1/2 2xl:left-[80%] transform -translate-x-1/2 md:translate-x-0 2xl:translate-x-0 z-50">
+          <div className="fixed  bottom-[-10%] right-[-5%] scale-50 lg:scale-100 lg:bottom-4 lg:right-4 2xl:left-[80%] transform -translate-x-1/2 md:translate-x-0 2xl:translate-x-0 z-50">
             <ActionButtons
               gameState={gameState}
               currentPlayer={myPlayer}
@@ -441,7 +441,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
 
       {/* Enhanced Winners Display */}
       {gameState.gamePhase === "ended" && gameState.winners && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 scale-50 lg:scale-100">
           <div className="winner-modal max-w-lg w-full mx-4 animate-winner">
             <div className="p-6 md:p-8">
               {/* Header */}
