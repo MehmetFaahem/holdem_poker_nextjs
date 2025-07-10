@@ -110,11 +110,11 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
       });
     }
 
-    // Bet/Raise button - using check icon for now, you might want to add a "bet" icon to PokerActionButton
+    // Bet/Raise button
     if (canBet || canRaise) {
       buttons.push({
         label: canBet ? "Bet" : "Raise",
-        icon: "call" as const, // Using call icon as placeholder for bet/raise
+        icon: "raise" as const,
         onClick: handleRaiseClick,
         disabled: isDisabled,
       });
@@ -173,6 +173,16 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         icon: "call" as const,
         onClick: () => handleQuickAction("call"),
         isSelected: quickAction === "call",
+      });
+    }
+
+    // Raise option
+    if (canRaise) {
+      actions.push({
+        label: "Raise",
+        icon: "raise" as const,
+        onClick: () => handleQuickAction("raise"),
+        isSelected: quickAction === "raise",
       });
     }
 
