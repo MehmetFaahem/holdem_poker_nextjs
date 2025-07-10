@@ -7,6 +7,7 @@ import { Card } from "./Card";
 import { ActionButtons } from "./ActionButtons";
 import { showToast } from "@/utils/toast";
 import PokerActionButton from "./PokerActionButton";
+import Image from "next/image";
 
 interface PokerTableProps {
   gameState: GameState;
@@ -223,9 +224,15 @@ export const PokerTable: React.FC<PokerTableProps> = ({
           {/* Poker Table */}
           <div className="relative top-[-20px] lg:top-[50px] w-full h-full sm:h-[700px] rotate-x-[-43deg] scale-70 lg:scale-100 lg:rotate-x-0">
             {/* Table Surface - Oval Shape */}
-            <div className="absolute inset-4 md:inset-8 bg-gradient-to-br from-[#4E0507] via-[#4E0507] to-[#4E0507] rounded-full shadow-2xl border-4 md:border-8 border-[#4E0507]">
+            <div className="absolute inset-4 md:inset-8 bg-transparent rounded-full shadow-2xl border-4 md:border-8 border-[#4E0507]">
               {/* Inner felt with border */}
-              <div className="absolute inset-2 md:inset-4 bg-gradient-to-br from-[#4E0507] to-[#4E0507] rounded-full border-2 md:border-4 border-[#590000] shadow-inner">
+              <Image
+                src="/images/poker_table.png"
+                alt="Poker Table Felt"
+                fill
+                className="absolute inset-0"
+              />
+              <div className="absolute inset-2 md:inset-4 bg-transparent">
                 {/* Lobby State - Center Content */}
                 {isLobbyState ? (
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
@@ -410,7 +417,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
       )}
 
       {/* Game Status Overlay - Fixed Position */}
-      <div className="fixed scale-80 top-5 md:top-12 left-4 md:left-2 glass-dark p-3 rounded-xl z-40">
+      {/* <div className="fixed scale-80 top-5 md:top-12 left-4 md:left-2 glass-dark p-3 rounded-xl z-40">
         <div className="text-xs md:text-sm space-y-1 md:space-y-2">
           <div className="text-white font-semibold border-b border-white/20 pb-1 md:pb-2">
             Game Info
@@ -437,7 +444,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             </div>
           )}
         </div>
-      </div>
+      </div> */}
 
       {/* Enhanced Winners Display */}
       {gameState.gamePhase === "ended" && gameState.winners && (

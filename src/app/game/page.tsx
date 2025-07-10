@@ -344,7 +344,7 @@ export default function GamePage() {
       </div>
 
       {/* Connection Status in Game */}
-      <div className="fixed top-6 left-6 z-50">
+      <div className="fixed top-6 left-6 z-50 scale-70 lg:scale-100">
         <div
           className={`glass px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
             connectionStatus === "connected"
@@ -374,7 +374,7 @@ export default function GamePage() {
       </div>
 
       {/* Game Controls */}
-      <div className="absolute top-6 right-6 z-50 flex gap-3">
+      <div className="absolute top-6 right-6 z-50 flex gap-3 scale-60 lg:scale-100">
         {/* Leave Game Button */}
         <button
           onClick={handleLeaveGame}
