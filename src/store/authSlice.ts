@@ -50,6 +50,7 @@ export const loginUser = createAsyncThunk(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
         body: JSON.stringify(credentials),
       });
@@ -96,6 +97,7 @@ export const registerUser = createAsyncThunk(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
         body: JSON.stringify(userData),
       });

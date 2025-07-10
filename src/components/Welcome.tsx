@@ -190,7 +190,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onProceed }) => {
           alt="bottom_right"
           width={1000}
           height={1000}
-          className="absolute bottom-[-25%] rotate-360 right-[-35%] md:bottom-[-115%] md:right-[-30%] w-[80%] sm:w-1/2 lg:w-[70%] opacity-60 sm:opacity-80 lg:opacity-100 z-20"
+          className="absolute bottom-[-65vw] rotate-360 right-[-35%] md:bottom-[-56vw] md:right-[-30%] w-[80%] sm:w-1/2 lg:w-[70%] opacity-60 sm:opacity-80 lg:opacity-100 z-20"
         />
         <Image
           src="/images/welcome/bg.png"
