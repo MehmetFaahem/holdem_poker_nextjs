@@ -100,3 +100,50 @@ export interface ChatState {
   isOpen: boolean;
   unreadCount: number;
 }
+
+// Table-related types
+export interface TablePlayer {
+  id: number;
+  position: number;
+  buy_in: number;
+  balance: number;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    created_at: string;
+  };
+}
+
+export interface TableStake {
+  id: number;
+  blind: {
+    small: number;
+    big: number;
+    small_formatted: string;
+    big_formatted: string;
+  };
+  buy_in: {
+    min: number;
+    max: number;
+    min_formatted: string;
+    max_formatted: string;
+  };
+}
+
+export interface PokerTable {
+  id: number;
+  max_players: number;
+  current_players: number;
+  stake: TableStake;
+  players: TablePlayer[];
+}
+
+export interface JoinTableRequest {
+  stake_id: number;
+  buy_in: number;
+}
+
+export interface JoinTableResponse {
+  data: PokerTable;
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSocketWithRedux } from "@/hooks/useSocketWithRedux";
+import { useTableSocket } from "@/hooks/useTableSocket";
 import { useOrientation, lockOrientation } from "@/hooks/useOrientation";
 import { GameLobby } from "@/components/GameLobby";
 import { PokerTable } from "@/components/PokerTable";
@@ -10,9 +11,16 @@ import { ChatWindow } from "@/components/ChatWindow";
 import { LandscapeWarning } from "@/components/LandscapeWarning";
 import Welcome from "@/components/Welcome";
 import { useConfirmationModal } from "@/contexts/ConfirmationModalContext";
-import { useAppDispatch } from "@/hooks/useAppSelector";
-import { toggleChat, closeChat } from "@/store/gameSlice";
+import { useAppDispatch, useAppSelector } from "@/hooks/useAppSelector";
+import {
+  toggleChat,
+  closeChat,
+  updateGameState,
+  setCurrentPlayer,
+} from "@/store/gameSlice";
+import { clearTable } from "@/store/tableSlice";
 import type { StakeData } from "@/components/Stakes";
+import type { GameState, Player } from "@/types/poker";
 
 export default function GamePage() {
   const {
@@ -29,9 +37,13 @@ export default function GamePage() {
     sendChatMessage,
   } = useSocketWithRedux();
 
+  const { isConnectedToTable, tableChannel, leaveTableSocket, emitTableEvent } =
+    useTableSocket();
+
   const orientation = useOrientation();
   const { showConfirmation } = useConfirmationModal();
   const dispatch = useAppDispatch();
+  const { currentTable } = useAppSelector((state) => state.table);
 
   const [gameId, setGameId] = useState<string | null>(null);
   const [isInGame, setIsInGame] = useState(false);
@@ -130,6 +142,84 @@ export default function GamePage() {
     }
   }, [gameState, currentPlayer, isInGame]);
 
+  // Handle direct table joining from stakes page
+  useEffect(() => {
+    if (currentTable && !isInGame) {
+      console.log("User joined table directly:", currentTable);
+      setIsFromStakes(true);
+      setShowWelcome(false);
+
+      // Generate a room ID based on table ID
+      const roomId = `table-${currentTable.id}`;
+      setGameId(roomId);
+
+      // Get user info from the current table data
+      const currentUser = currentTable.players.find(
+        (player) => player.user.email // We could match by email or another identifier
+      );
+
+      if (currentUser) {
+        // Create initial game state
+        const initialGameState: GameState = {
+          id: roomId,
+          players: currentTable.players.map((player) => ({
+            id: player.id.toString(),
+            name: player.user.name,
+            chips: player.buy_in,
+            position: player.position,
+            holeCards: [],
+            isFolded: false,
+            isAllIn: false,
+            hasActedThisRound: false,
+            inPotThisRound: 0,
+            totalPotContribution: 0,
+            isActive: true,
+          })),
+          maxPlayers: currentTable.max_players,
+          isStarted: false,
+          gamePhase: "waiting",
+          pot: 0,
+          currentBet: 0,
+          minimumRaise: currentTable.stake.blind.big,
+          lastRaiseAmount: 0,
+          currentPlayerIndex: 0,
+          roundStartPlayerIndex: 0,
+          dealerPosition: 0,
+          smallBlind: currentTable.stake.blind.small,
+          bigBlind: currentTable.stake.blind.big,
+          communityCards: [],
+          stakeInfo: {
+            stakes: `${currentTable.stake.blind.small_formatted}/${currentTable.stake.blind.big_formatted}`,
+            buyIn: `${currentTable.stake.buy_in.min_formatted} - ${currentTable.stake.buy_in.max_formatted}`,
+            startingChips: currentUser.buy_in,
+          },
+        };
+
+        // Update game state in Redux
+        dispatch(updateGameState(initialGameState));
+
+        // Set current player
+        dispatch(
+          setCurrentPlayer({
+            id: currentUser.id.toString(),
+            name: currentUser.user.name,
+            chips: currentUser.buy_in,
+            position: currentUser.position,
+            holeCards: [],
+            isFolded: false,
+            isAllIn: false,
+            hasActedThisRound: false,
+            inPotThisRound: 0,
+            totalPotContribution: 0,
+            isActive: true,
+          })
+        );
+
+        setIsInGame(true);
+      }
+    }
+  }, [currentTable, isInGame, dispatch]);
+
   const handleJoinGame = (gameId: string, playerName: string) => {
     setGameId(gameId);
     joinGame(gameId, playerName);
@@ -175,7 +265,14 @@ export default function GamePage() {
 
     if (gameId && currentPlayer) {
       console.log(`Leaving game ${gameId} as player ${currentPlayer.name}`);
-      leaveGame(gameId, currentPlayer.id);
+
+      // If user joined via table, use table socket leave
+      if (currentTable && isConnectedToTable) {
+        await leaveTableSocket();
+      } else {
+        // Regular game leave for non-table games
+        leaveGame(gameId, currentPlayer.id);
+      }
 
       // Reset local state immediately
       setIsInGame(false);
@@ -184,6 +281,12 @@ export default function GamePage() {
     } else {
       // Fallback - reset state even if gameId/currentPlayer is missing
       console.log("Force leaving game - resetting all state");
+
+      // Clear table state if present
+      if (currentTable) {
+        await leaveTableSocket();
+      }
+
       setIsInGame(false);
       setGameId(null);
       setCreatedRoomId(null);
@@ -244,8 +347,8 @@ export default function GamePage() {
     return <Welcome onProceed={handleProceedFromWelcome} />;
   }
 
-  // Show lobby if not in a game
-  if (!isInGame || !gameState || !currentPlayer) {
+  // Show lobby if not in game AND not coming from stakes
+  if ((!isInGame || !gameState || !currentPlayer) && !currentTable) {
     return (
       <div
         className={`relative ${
@@ -336,7 +439,7 @@ export default function GamePage() {
 
       <div className={orientation.isMobile ? "poker-table-mobile" : ""}>
         <PokerTable
-          gameState={gameState}
+          gameState={gameState!} // We know gameState exists here because of the earlier conditions
           currentPlayer={currentPlayer}
           onPlayerAction={handlePlayerAction}
           onStartGame={handleStartGame}
@@ -344,7 +447,8 @@ export default function GamePage() {
       </div>
 
       {/* Connection Status in Game */}
-      <div className="fixed top-6 left-6 z-50 scale-70 lg:scale-100">
+      <div className="fixed top-6 left-6 z-50 scale-70 lg:scale-100 space-y-2">
+        {/* Game Socket Status */}
         <div
           className={`glass px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
             connectionStatus === "connected"
@@ -365,12 +469,37 @@ export default function GamePage() {
               }`}
             ></div>
             <span>
+              Game{" "}
               {connectionStatus.charAt(0).toUpperCase() +
                 connectionStatus.slice(1)}
               {isLoading && " (Processing...)"}
             </span>
           </div>
         </div>
+
+        {/* Table Socket Status */}
+        {currentTable && (
+          <div
+            className={`glass px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
+              isConnectedToTable
+                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  isConnectedToTable
+                    ? "bg-blue-400 animate-pulse"
+                    : "bg-amber-400 animate-pulse"
+                }`}
+              ></div>
+              <span>
+                Table {isConnectedToTable ? "Connected" : "Connecting..."}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Game Controls */}
@@ -389,7 +518,7 @@ export default function GamePage() {
       </div>
 
       {/* Chat Components - Only show when game is started */}
-      {gameState.isStarted && (
+      {gameState?.isStarted && (
         <>
           <ChatIcon
             isOpen={chat.isOpen}

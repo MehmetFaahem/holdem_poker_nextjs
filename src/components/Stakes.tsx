@@ -7,6 +7,9 @@ import { Navigation, EffectCoverflow } from "swiper/modules";
 import type { Swiper as SwiperType } from "swiper";
 import { useAppDispatch, useAppSelector } from "@/hooks/useAppSelector";
 import { fetchStakes, Stake } from "@/store/stakesSlice";
+import { joinTable, clearError, clearTable } from "@/store/tableSlice";
+import { BuyInModal } from "@/components/BuyInModal";
+import { showToast } from "@/utils/toast";
 
 // Import Swiper styles
 import "swiper/css";
@@ -33,10 +36,18 @@ export default function Stakes() {
   const swiperRef = useRef<SwiperType | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [showBuyInModal, setShowBuyInModal] = useState(false);
+  const [selectedStake, setSelectedStake] = useState<Stake | null>(null);
 
   const dispatch = useAppDispatch();
   const { stakes, loading, error } = useAppSelector((state) => state.stakes);
   const { token } = useAppSelector((state) => state.auth);
+  const {
+    currentTable,
+    isJoining,
+    error: tableError,
+    isConnectedToTable,
+  } = useAppSelector((state) => state.table);
 
   // Fetch stakes data on component mount
   useEffect(() => {
@@ -50,6 +61,22 @@ export default function Stakes() {
     }
   }, [error, token, router]);
 
+  // Handle table joining success
+  useEffect(() => {
+    if (currentTable) {
+      showToast.success("Successfully joined table!");
+      router.push("/game");
+    }
+  }, [currentTable, router]);
+
+  // Handle table joining error
+  useEffect(() => {
+    if (tableError) {
+      showToast.error(tableError);
+      dispatch(clearError());
+    }
+  }, [tableError, dispatch]);
+
   const handlePrevious = () => {
     swiperRef.current?.slidePrev();
   };
@@ -59,26 +86,37 @@ export default function Stakes() {
   };
 
   const handleStakeSelection = (stake: Stake) => {
-    setIsLoading(true);
+    // Prevent joining multiple tables
+    if (currentTable) {
+      showToast.error(
+        "You are already in a table. Please leave your current table first."
+      );
+      return;
+    }
 
-    // Store the selected stake data for the game lobby
-    const stakeData = {
-      stakes: `${stake.blind.small_formatted}/${stake.blind.big_formatted}`,
-      buyIn: `${stake.buy_in.min_formatted} - ${stake.buy_in.max_formatted}`,
-      minCall: stake.blind.small,
-      maxCall: stake.blind.big,
-      startingChips: stake.buy_in.min,
-    };
+    setSelectedStake(stake);
+    setShowBuyInModal(true);
+  };
 
-    // Store stake data and use default player name
-    sessionStorage.setItem("selectedStake", JSON.stringify(stakeData));
-    sessionStorage.setItem("playerName", "Player"); // Default player name
-    sessionStorage.setItem("goToLobby", "true"); // Flag to go directly to lobby
+  const handleBuyInConfirm = async (buyIn: number) => {
+    if (!selectedStake) return;
 
-    // Navigate to the main game page (lobby)
-    setTimeout(() => {
-      router.push("/game");
-    }, 1500);
+    try {
+      await dispatch(
+        joinTable({
+          stakeId: selectedStake.id,
+          buyIn: buyIn,
+        })
+      ).unwrap();
+    } catch (error) {
+      // Error is handled by the useEffect
+      console.error("Failed to join table:", error);
+    }
+  };
+
+  const handleModalClose = () => {
+    setShowBuyInModal(false);
+    setSelectedStake(null);
   };
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -116,16 +154,22 @@ export default function Stakes() {
       }}
     >
       {/* Loading Overlay */}
-      {(isLoading || loading) && (
+      {(isLoading || loading || isJoining) && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[99999] backdrop-blur-sm">
           <div className="text-center text-white px-4">
             <div className="loading-spinner w-12 h-12 sm:w-16 sm:h-16 border-4 border-gray-600 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
             <h2 className="text-xl sm:text-2xl font-bold mb-2">
-              {loading ? "Loading Stakes..." : "Creating Room..."}
+              {loading
+                ? "Loading Stakes..."
+                : isJoining
+                ? "Joining Table..."
+                : "Creating Room..."}
             </h2>
             <p className="text-gray-300 text-sm sm:text-base">
               {loading
                 ? "Fetching available stakes"
+                : isJoining
+                ? "Joining your selected poker table"
                 : "Setting up your poker room with the selected stakes"}
             </p>
           </div>
@@ -147,6 +191,68 @@ export default function Stakes() {
             >
               Try Again
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Current Table Status */}
+      {currentTable && (
+        <div className="fixed top-4 right-4 z-[99998] max-w-sm">
+          <div className="bg-gradient-to-r from-green-900/90 to-green-800/90 backdrop-blur-md border border-green-500/30 rounded-xl p-4 text-white shadow-2xl">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    isConnectedToTable
+                      ? "bg-green-400 animate-pulse"
+                      : "bg-yellow-400"
+                  }`}
+                ></div>
+                <h3 className="text-sm font-bold">Current Table</h3>
+              </div>
+              <button
+                onClick={() => router.push("/game")}
+                className="text-white/60 hover:text-white transition-colors text-sm"
+              >
+                View →
+              </button>
+            </div>
+            <div className="space-y-1 text-xs">
+              <div>
+                <span className="text-green-300">Stakes:</span>{" "}
+                {currentTable.stake.blind.small_formatted}/
+                {currentTable.stake.blind.big_formatted}
+              </div>
+              <div>
+                <span className="text-green-300">Players:</span>{" "}
+                {currentTable.current_players}/{currentTable.max_players}
+              </div>
+              <div>
+                <span className="text-green-300">Status:</span>{" "}
+                {isConnectedToTable ? "Connected" : "Connecting..."}
+              </div>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => router.push("/game")}
+                className="flex-1 px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-xs transition-colors"
+              >
+                Return to Table
+              </button>
+              <button
+                onClick={() => {
+                  if (
+                    window.confirm("Are you sure you want to leave the table?")
+                  ) {
+                    dispatch(clearTable());
+                    showToast.success("Left the table");
+                  }
+                }}
+                className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs transition-colors"
+              >
+                Leave
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -409,6 +515,14 @@ export default function Stakes() {
           </button>
         </div>
       </div>
+
+      {/* Buy-in Modal */}
+      <BuyInModal
+        isOpen={showBuyInModal}
+        onClose={handleModalClose}
+        onConfirm={handleBuyInConfirm}
+        stake={selectedStake}
+      />
     </div>
   );
 }

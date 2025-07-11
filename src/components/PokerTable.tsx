@@ -91,11 +91,26 @@ export const PokerTable: React.FC<PokerTableProps> = ({
 
   const isCurrentPlayerTurn =
     currentPlayer &&
-    gameState.players[gameState.currentPlayerIndex]?.id === currentPlayer.id;
+    gameState?.players[gameState.currentPlayerIndex]?.id === currentPlayer.id;
 
   const myPlayer = currentPlayer
-    ? gameState.players.find((p) => p.id === currentPlayer.id)
+    ? gameState?.players.find((p) => p.id === currentPlayer.id)
     : null;
+
+  // Add null check for gameState
+  if (!gameState) {
+    return (
+      <div className="relative w-full h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden flex items-center justify-center">
+        <div className="glass-dark px-6 py-4 rounded-2xl shadow-lg">
+          <div className="text-center">
+            <div className="text-yellow-400 font-bold text-2xl mb-2">
+              Loading Game...
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const isLobbyState =
     gameState.gamePhase === "waiting" && !gameState.isStarted;
