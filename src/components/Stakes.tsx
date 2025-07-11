@@ -7,6 +7,8 @@ import { Navigation, EffectCoverflow } from "swiper/modules";
 import type { Swiper as SwiperType } from "swiper";
 import { useAppDispatch, useAppSelector } from "@/hooks/useAppSelector";
 import { fetchStakes, Stake } from "@/store/stakesSlice";
+import { joinTable, clearError } from "@/store/tableSlice";
+import { BuyInModal } from "@/components/BuyInModal";
 
 // Import Swiper styles
 import "swiper/css";
@@ -33,10 +35,17 @@ export default function Stakes() {
   const swiperRef = useRef<SwiperType | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [showBuyInModal, setShowBuyInModal] = useState(false);
+  const [selectedStake, setSelectedStake] = useState<Stake | null>(null);
 
   const dispatch = useAppDispatch();
   const { stakes, loading, error } = useAppSelector((state) => state.stakes);
   const { token } = useAppSelector((state) => state.auth);
+  const {
+    isJoining,
+    currentTable,
+    error: tableError,
+  } = useAppSelector((state) => state.table);
 
   // Fetch stakes data on component mount
   useEffect(() => {
@@ -50,6 +59,13 @@ export default function Stakes() {
     }
   }, [error, token, router]);
 
+  // Redirect to game if already at a table
+  useEffect(() => {
+    if (currentTable) {
+      router.push("/game");
+    }
+  }, [currentTable, router]);
+
   const handlePrevious = () => {
     swiperRef.current?.slidePrev();
   };
@@ -59,26 +75,32 @@ export default function Stakes() {
   };
 
   const handleStakeSelection = (stake: Stake) => {
-    setIsLoading(true);
+    setSelectedStake(stake);
+    setShowBuyInModal(true);
+  };
 
-    // Store the selected stake data for the game lobby
-    const stakeData = {
-      stakes: `${stake.blind.small_formatted}/${stake.blind.big_formatted}`,
-      buyIn: `${stake.buy_in.min_formatted} - ${stake.buy_in.max_formatted}`,
-      minCall: stake.blind.small,
-      maxCall: stake.blind.big,
-      startingChips: stake.buy_in.min,
-    };
+  const handleBuyInConfirm = async (buyIn: number) => {
+    if (!selectedStake) return;
 
-    // Store stake data and use default player name
-    sessionStorage.setItem("selectedStake", JSON.stringify(stakeData));
-    sessionStorage.setItem("playerName", "Player"); // Default player name
-    sessionStorage.setItem("goToLobby", "true"); // Flag to go directly to lobby
+    try {
+      const result = await dispatch(
+        joinTable({
+          stake_id: selectedStake.id,
+          buy_in: buyIn,
+        })
+      ).unwrap();
 
-    // Navigate to the main game page (lobby)
-    setTimeout(() => {
+      // Navigate directly to the game page with table data
       router.push("/game");
-    }, 1500);
+    } catch (error) {
+      console.error("Failed to join table:", error);
+      // Error handling is done in the slice
+    }
+  };
+
+  const handleBuyInCancel = () => {
+    setShowBuyInModal(false);
+    setSelectedStake(null);
   };
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -116,18 +138,53 @@ export default function Stakes() {
       }}
     >
       {/* Loading Overlay */}
-      {(isLoading || loading) && (
+      {loading && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[99999] backdrop-blur-sm">
           <div className="text-center text-white px-4">
             <div className="loading-spinner w-12 h-12 sm:w-16 sm:h-16 border-4 border-gray-600 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
             <h2 className="text-xl sm:text-2xl font-bold mb-2">
-              {loading ? "Loading Stakes..." : "Creating Room..."}
+              Loading Stakes...
             </h2>
             <p className="text-gray-300 text-sm sm:text-base">
-              {loading
-                ? "Fetching available stakes"
-                : "Setting up your poker room with the selected stakes"}
+              Fetching available stakes
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Buy-in Modal */}
+      {selectedStake && (
+        <BuyInModal
+          isOpen={showBuyInModal}
+          onClose={handleBuyInCancel}
+          onConfirm={handleBuyInConfirm}
+          stake={selectedStake}
+          isLoading={isJoining}
+        />
+      )}
+
+      {/* Error display for table joining */}
+      {tableError && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[99999] backdrop-blur-sm">
+          <div className="text-center text-white px-4">
+            <div className="text-red-500 text-4xl mb-4">⚠️</div>
+            <h2 className="text-xl sm:text-2xl font-bold mb-2">
+              Error Joining Table
+            </h2>
+            <p className="text-gray-300 text-sm sm:text-base mb-4">
+              {tableError}
+            </p>
+            <button
+              onClick={() => {
+                // Clear the error and close modal
+                dispatch(clearError());
+                setShowBuyInModal(false);
+                setSelectedStake(null);
+              }}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+            >
+              Try Again
+            </button>
           </div>
         </div>
       )}

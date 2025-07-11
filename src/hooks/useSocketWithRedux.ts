@@ -29,10 +29,23 @@ export const useSocketWithRedux = () => {
   const dispatch = useAppDispatch();
   const { gameState, currentPlayer, connectionStatus, error, isLoading, chat } =
     useAppSelector((state) => state.game);
+  const { currentTable } = useAppSelector((state) => state.table);
   const socketRef = useRef<Socket | null>(null);
 
-  // Initialize socket connection
+  // Initialize socket connection only if not at a poker table or if game has started
   useEffect(() => {
+    // Check if game was started from poker table
+    const startedGameId =
+      typeof window !== "undefined" ? sessionStorage.getItem("gameId") : null;
+    const gameMode =
+      typeof window !== "undefined" ? sessionStorage.getItem("gameMode") : null;
+
+    // Don't connect if user is at a poker table and game hasn't started
+    if (currentTable && !startedGameId) {
+      console.log("Skipping game socket connection - user is at poker table");
+      return;
+    }
+
     dispatch(setConnectionStatus("connecting"));
 
     // Determine the correct URL for Socket.IO connection
@@ -144,11 +157,20 @@ export const useSocketWithRedux = () => {
       socket.disconnect();
       dispatch(setConnectionStatus("disconnected"));
     };
-  }, [dispatch]);
+  }, [dispatch, currentTable]);
 
   // Join game function
   const joinGame = useCallback(
     (gameId: string, playerName: string) => {
+      // Check if game was started from poker table
+      const startedGameId =
+        typeof window !== "undefined" ? sessionStorage.getItem("gameId") : null;
+
+      if (currentTable && !startedGameId) {
+        console.log("Cannot join game - user is at poker table");
+        return;
+      }
+
       if (socketRef.current && connectionStatus === "connected") {
         console.log("Joining game:", gameId, "as", playerName);
         socketRef.current.emit("join-game", { gameId, playerName });
@@ -157,12 +179,21 @@ export const useSocketWithRedux = () => {
         // showToast.error("Not connected to server");
       }
     },
-    [connectionStatus]
+    [connectionStatus, currentTable]
   );
 
   // Join game with custom stakes function
   const joinGameWithStakes = useCallback(
     (gameId: string, playerName: string, stakeData: StakeData) => {
+      // Check if game was started from poker table
+      const startedGameId =
+        typeof window !== "undefined" ? sessionStorage.getItem("gameId") : null;
+
+      if (currentTable && !startedGameId) {
+        console.log("Cannot join game with stakes - user is at poker table");
+        return;
+      }
+
       if (socketRef.current && connectionStatus === "connected") {
         console.log(
           "Joining game with stakes:",
@@ -183,12 +214,21 @@ export const useSocketWithRedux = () => {
         // showToast.error("Not connected to server");
       }
     },
-    [connectionStatus]
+    [connectionStatus, currentTable]
   );
 
   // Leave game function
   const leaveGame = useCallback(
     (gameId: string, playerId: string) => {
+      // Check if game was started from poker table
+      const startedGameId =
+        typeof window !== "undefined" ? sessionStorage.getItem("gameId") : null;
+
+      if (currentTable && !startedGameId) {
+        console.log("Cannot leave game - user is at poker table");
+        return;
+      }
+
       if (socketRef.current && connectionStatus === "connected") {
         console.log("Leaving game:", gameId);
         socketRef.current.emit("leave-game", { gameId, playerId });
@@ -198,7 +238,7 @@ export const useSocketWithRedux = () => {
         dispatch(resetGame());
       }
     },
-    [connectionStatus, dispatch]
+    [connectionStatus, dispatch, currentTable]
   );
 
   // Start game function
@@ -229,6 +269,15 @@ export const useSocketWithRedux = () => {
       action: "fold" | "check" | "call" | "bet" | "raise" | "all-in",
       amount?: number
     ) => {
+      // Check if game was started from poker table
+      const startedGameId =
+        typeof window !== "undefined" ? sessionStorage.getItem("gameId") : null;
+
+      if (currentTable && !startedGameId) {
+        console.log("Cannot perform player action - user is at poker table");
+        return;
+      }
+
       if (!socketRef.current || connectionStatus !== "connected") {
         // showToast.error("Not connected to server");
         return;
@@ -308,12 +357,21 @@ export const useSocketWithRedux = () => {
         amount,
       });
     },
-    [connectionStatus, gameState, currentPlayer, dispatch]
+    [connectionStatus, gameState, currentPlayer, dispatch, currentTable]
   );
 
   // Send chat message function
   const sendChatMessage = useCallback(
     (gameId: string, message: string) => {
+      // Check if game was started from poker table
+      const startedGameId =
+        typeof window !== "undefined" ? sessionStorage.getItem("gameId") : null;
+
+      if (currentTable && !startedGameId) {
+        console.log("Cannot send chat message - user is at poker table");
+        return;
+      }
+
       if (!socketRef.current || connectionStatus !== "connected") {
         // showToast.error("Not connected to server");
         return;
@@ -335,7 +393,7 @@ export const useSocketWithRedux = () => {
         message: message.trim(),
       });
     },
-    [connectionStatus, currentPlayer]
+    [connectionStatus, currentPlayer, currentTable]
   );
 
   return {

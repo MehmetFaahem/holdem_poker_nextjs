@@ -19,6 +19,53 @@ export interface Player {
   avatar?: string;
 }
 
+// New interfaces for poker table API
+export interface TablePlayer {
+  id: number;
+  position: number;
+  buy_in: number;
+  balance: number;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    created_at: string;
+  };
+}
+
+export interface TableStake {
+  id: number;
+  blind: {
+    small: number;
+    big: number;
+    small_formatted: string;
+    big_formatted: string;
+  };
+  buy_in: {
+    min: number;
+    max: number;
+    min_formatted: string;
+    max_formatted: string;
+  };
+}
+
+export interface PokerTable {
+  id: number;
+  max_players: number;
+  current_players: number;
+  stake: TableStake;
+  players: TablePlayer[];
+}
+
+export interface JoinTableRequest {
+  stake_id: number;
+  buy_in: number;
+}
+
+export interface JoinTableResponse {
+  data: PokerTable;
+}
+
 export interface GameState {
   id: string;
   players: Player[];
@@ -65,6 +112,27 @@ export interface SocketEvents {
   "player-joined": Player;
   "player-left": { playerId: string };
   error: { message: string };
+}
+
+// New socket events for poker table
+export interface PokerTableSocketEvents {
+  "poker.new-player": {
+    event: "poker.new-player";
+    data: {
+      player: TablePlayer;
+      socket: any;
+    };
+  };
+  "poker.leave-player": {
+    event: "poker.leave-player";
+    data: {
+      player: {
+        id: number;
+        position: number;
+      };
+      socket: any;
+    };
+  };
 }
 
 export type HandRank =

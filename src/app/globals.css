@@ -18,7 +18,6 @@
   --font-mono: var(--font-geist-mono);
   --font-blacklisted: var(--font-blacklisted);
   --font-impact: var(--font-impact);
-  --breakpoint-max-h-380: (max-height: 380px);
 }
 
 @media (prefers-color-scheme: light) {

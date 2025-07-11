@@ -1,20 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "@/hooks/useAppSelector";
 import { useSocketWithRedux } from "@/hooks/useSocketWithRedux";
 import { useOrientation, lockOrientation } from "@/hooks/useOrientation";
-import { GameLobby } from "@/components/GameLobby";
+import { useConfirmationModal } from "@/contexts/ConfirmationModalContext";
 import { PokerTable } from "@/components/PokerTable";
+import { GameLobby } from "@/components/GameLobby";
+import Welcome from "@/components/Welcome";
+import { PokerTableView } from "@/components/PokerTableView";
+import { LandscapeWarning } from "@/components/LandscapeWarning";
 import { ChatIcon } from "@/components/ChatIcon";
 import { ChatWindow } from "@/components/ChatWindow";
-import { LandscapeWarning } from "@/components/LandscapeWarning";
-import Welcome from "@/components/Welcome";
-import { useConfirmationModal } from "@/contexts/ConfirmationModalContext";
-import { useAppDispatch } from "@/hooks/useAppSelector";
+import { resetGame } from "@/store/gameSlice";
 import { toggleChat, closeChat } from "@/store/gameSlice";
 import type { StakeData } from "@/components/Stakes";
 
 export default function GamePage() {
+  // Check if user is at a poker table first
+  const { currentTable } = useAppSelector((state) => state.table);
+
+  // Only initialize the game socket if not at a poker table
   const {
     gameState,
     currentPlayer,
@@ -38,6 +44,11 @@ export default function GamePage() {
   const [createdRoomId, setCreatedRoomId] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
   const [isFromStakes, setIsFromStakes] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+  const [clientStartedGameId, setClientStartedGameId] = useState<string | null>(
+    null
+  );
+  const [mounted, setMounted] = useState(false);
 
   // Initialize Socket.IO server on component mount
   useEffect(() => {
@@ -54,13 +65,46 @@ export default function GamePage() {
     }
   }, [orientation.isMobile, showWelcome]);
 
+  // Handle client-side sessionStorage values to prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+    setIsClient(true);
+    const gameTableId = sessionStorage.getItem("gameTableId");
+    const gameMode = sessionStorage.getItem("gameMode");
+    const startedGameId = sessionStorage.getItem("gameId");
+
+    if (startedGameId) {
+      setClientStartedGameId(startedGameId);
+    }
+  }, []);
+
   // Check if user is coming from stakes with selected data OR joining existing room
   useEffect(() => {
-    const selectedStake = sessionStorage.getItem("selectedStake");
-    const playerName = sessionStorage.getItem("playerName");
-    const goToLobby = sessionStorage.getItem("goToLobby");
-    const joinRoomId = sessionStorage.getItem("joinRoomId");
-    const joinExistingRoom = sessionStorage.getItem("joinExistingRoom");
+    const selectedStake =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("selectedStake")
+        : null;
+    const playerName =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("playerName")
+        : null;
+    const goToLobby =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("goToLobby")
+        : null;
+    const joinRoomId =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("joinRoomId")
+        : null;
+    const joinExistingRoom =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("joinExistingRoom")
+        : null;
+
+    // Check if game was started from poker table
+    const startedGameId = isClient ? clientStartedGameId : null;
+    const gameMode =
+      typeof window !== "undefined" ? sessionStorage.getItem("gameMode") : null;
 
     // Handle joining existing room
     if (joinRoomId && playerName && joinExistingRoom === "true") {
@@ -102,7 +146,21 @@ export default function GamePage() {
         setShowWelcome(true);
       }
     }
-  }, []);
+
+    // Handle game started from poker table
+    if (startedGameId && gameMode === "poker_table" && currentTable) {
+      console.log("Game started from poker table:", startedGameId);
+      setGameId(startedGameId);
+      // setIsInGame(true); // This will be set by the useEffect below
+
+      // Clear the session storage after using it
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("gameId");
+        sessionStorage.removeItem("gameMode");
+        sessionStorage.removeItem("gameTableId");
+      }
+    }
+  }, [currentTable]);
 
   // Set isInGame when player joins successfully and sync gameId
   useEffect(() => {
@@ -238,6 +296,31 @@ export default function GamePage() {
   const handleProceedFromWelcome = () => {
     setShowWelcome(false);
   };
+
+  // Remove these duplicate lines:
+  // const gameTableId = typeof window !== "undefined" ? sessionStorage.getItem("gameTableId") : null;
+  // const gameMode = typeof window !== "undefined" ? sessionStorage.getItem("gameMode") : null;
+  // const startedGameId = isClient ? clientStartedGameId : null;
+
+  // Instead, use only the client state:
+  const startedGameId = isClient ? clientStartedGameId : null;
+
+  // Prevent hydration mismatch by not rendering conditional content until mounted
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="text-center text-white">
+          <div className="text-4xl mb-4">🃏</div>
+          <div className="text-lg">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show poker table view if user is at a table and game hasn't started
+  if (currentTable && !startedGameId) {
+    return <PokerTableView />;
+  }
 
   // Show welcome screen first
   if (showWelcome) {
