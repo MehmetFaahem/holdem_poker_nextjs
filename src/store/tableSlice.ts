@@ -139,9 +139,17 @@ const tableSlice = createSlice({
         );
         if (existingPlayerIndex === -1) {
           state.currentTable.players.push(action.payload);
-          state.currentTable.current_players =
-            state.currentTable.players.length;
+        } else {
+          // Update existing player
+          state.currentTable.players[existingPlayerIndex] = action.payload;
         }
+        state.currentTable.current_players = state.currentTable.players.length;
+
+        // Log the update
+        console.log("Table state updated after player join:", {
+          players: state.currentTable.players,
+          currentPlayers: state.currentTable.current_players,
+        });
       }
     },
     removePlayerFromTable: (
@@ -149,10 +157,18 @@ const tableSlice = createSlice({
       action: PayloadAction<{ id: number; position: number }>
     ) => {
       if (state.currentTable) {
+        const playersBefore = state.currentTable.players.length;
         state.currentTable.players = state.currentTable.players.filter(
           (p) => p.id !== action.payload.id
         );
         state.currentTable.current_players = state.currentTable.players.length;
+
+        // Log the update
+        console.log("Table state updated after player leave:", {
+          playerId: action.payload.id,
+          playersBefore,
+          playersAfter: state.currentTable.current_players,
+        });
       }
     },
     updatePlayerInTable: (state, action: PayloadAction<TablePlayer>) => {
@@ -161,7 +177,19 @@ const tableSlice = createSlice({
           (p) => p.id === action.payload.id
         );
         if (playerIndex !== -1) {
-          state.currentTable.players[playerIndex] = action.payload;
+          // Keep existing player data that might not be in the update
+          const existingPlayer = state.currentTable.players[playerIndex];
+          state.currentTable.players[playerIndex] = {
+            ...existingPlayer,
+            ...action.payload,
+          };
+
+          // Log the update
+          console.log("Table state updated after player update:", {
+            playerId: action.payload.id,
+            oldData: existingPlayer,
+            newData: state.currentTable.players[playerIndex],
+          });
         }
       }
     },

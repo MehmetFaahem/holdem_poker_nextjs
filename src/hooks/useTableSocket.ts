@@ -9,6 +9,7 @@ import {
   leaveTable,
   clearTable,
 } from "@/store/tableSlice";
+import { updateGameState } from "@/store/gameSlice";
 import { showToast } from "@/utils/toast";
 import { TablePlayer } from "@/types/poker";
 
@@ -19,6 +20,7 @@ export const useTableSocket = () => {
   const { currentTable, tableChannel, isConnectedToTable } = useAppSelector(
     (state) => state.table
   );
+  const { gameState } = useAppSelector((state) => state.game);
   const { user } = useAppSelector((state) => state.auth);
   const socketRef = useRef<Socket | null>(null);
 
@@ -27,10 +29,13 @@ export const useTableSocket = () => {
     if (tableChannel && !socketRef.current) {
       console.log(`Connecting to table socket: ${tableChannel}`);
 
+      // Initialize socket with auth token if available
+      const token = localStorage.getItem("token");
       socketRef.current = io(SOCKET_SERVER_URL, {
-        transports: ["websocket", "polling"],
+        transports: ["websocket"],
         timeout: 10000,
         forceNew: true,
+        auth: token ? { token } : undefined,
       });
 
       const socket = socketRef.current;
@@ -43,7 +48,7 @@ export const useTableSocket = () => {
         );
 
         // Join the specific table channel
-        socket.emit("join", tableChannel);
+        socket.emit("join", { channel: tableChannel });
         showToast.success("Connected to table");
       });
 
@@ -64,7 +69,51 @@ export const useTableSocket = () => {
         "poker.new-player",
         (data: { player: TablePlayer; socket: any }) => {
           console.log("New player joined table:", data);
+
+          // Update table state
           dispatch(addPlayerToTable(data.player));
+
+          // Update game state
+          if (gameState) {
+            const updatedPlayers = [...gameState.players];
+            const newPlayer = {
+              id: data.player.id.toString(),
+              name: data.player.user.name,
+              chips: data.player.buy_in,
+              position: data.player.position,
+              holeCards: [],
+              isFolded: false,
+              isAllIn: false,
+              hasActedThisRound: false,
+              inPotThisRound: 0,
+              totalPotContribution: 0,
+              isActive: true,
+            };
+
+            // Check if player already exists
+            const existingPlayerIndex = updatedPlayers.findIndex(
+              (p) => p.id === newPlayer.id
+            );
+
+            if (existingPlayerIndex === -1) {
+              updatedPlayers.push(newPlayer);
+            } else {
+              updatedPlayers[existingPlayerIndex] = newPlayer;
+            }
+
+            dispatch(
+              updateGameState({
+                ...gameState,
+                players: updatedPlayers,
+              })
+            );
+
+            // Log the update
+            console.log("Updated game state after new player:", {
+              players: updatedPlayers,
+              currentPlayers: updatedPlayers.length,
+            });
+          }
 
           // Show toast only if it's not the current user
           if (user && data.player.user.id !== user.id) {
@@ -77,7 +126,29 @@ export const useTableSocket = () => {
         "poker.leave-player",
         (data: { player: { id: number; position: number }; socket: any }) => {
           console.log("Player left table:", data);
+
+          // Update table state
           dispatch(removePlayerFromTable(data.player));
+
+          // Update game state
+          if (gameState) {
+            const updatedPlayers = gameState.players.filter(
+              (player) => player.id !== data.player.id.toString()
+            );
+
+            dispatch(
+              updateGameState({
+                ...gameState,
+                players: updatedPlayers,
+              })
+            );
+
+            // Log the update
+            console.log("Updated game state after player left:", {
+              players: updatedPlayers,
+              currentPlayers: updatedPlayers.length,
+            });
+          }
 
           // Find the player name from current table for toast
           if (currentTable) {
@@ -95,6 +166,34 @@ export const useTableSocket = () => {
       socket.on("poker.player-update", (data: { player: TablePlayer }) => {
         console.log("Player updated:", data);
         dispatch(updatePlayerInTable(data.player));
+
+        // Update game state if needed
+        if (gameState) {
+          const playerIndex = gameState.players.findIndex(
+            (p) => p.id === data.player.id.toString()
+          );
+          if (playerIndex !== -1) {
+            const updatedPlayers = [...gameState.players];
+            updatedPlayers[playerIndex] = {
+              ...updatedPlayers[playerIndex],
+              chips: data.player.buy_in,
+              position: data.player.position,
+            };
+
+            dispatch(
+              updateGameState({
+                ...gameState,
+                players: updatedPlayers,
+              })
+            );
+
+            // Log the update
+            console.log("Updated game state after player update:", {
+              player: data.player,
+              updatedState: updatedPlayers[playerIndex],
+            });
+          }
+        }
       });
 
       socket.on("error", (error: { message: string }) => {
@@ -105,29 +204,30 @@ export const useTableSocket = () => {
       return () => {
         console.log("Cleaning up table socket connection");
         if (socket) {
-          socket.emit("leave", tableChannel);
+          socket.emit("leave", { channel: tableChannel });
           socket.disconnect();
         }
         socketRef.current = null;
       };
     }
-  }, [tableChannel, dispatch, currentTable, user]);
+  }, [tableChannel, dispatch, currentTable, user, gameState]);
 
   // Cleanup socket when table is cleared
   useEffect(() => {
     if (!currentTable && socketRef.current) {
       console.log("Table cleared, disconnecting socket");
+      socketRef.current.emit("leave", { channel: tableChannel });
       socketRef.current.disconnect();
       socketRef.current = null;
       dispatch(setTableConnection({ connected: false }));
     }
-  }, [currentTable, dispatch]);
+  }, [currentTable, dispatch, tableChannel]);
 
   // Function to manually leave table
   const leaveTableSocket = async () => {
     if (socketRef.current && tableChannel) {
       console.log(`Leaving table channel: ${tableChannel}`);
-      socketRef.current.emit("leave", tableChannel);
+      socketRef.current.emit("leave", { channel: tableChannel });
     }
 
     // Call the API to leave the table
@@ -151,7 +251,7 @@ export const useTableSocket = () => {
   // Function to send table-specific events
   const emitTableEvent = (event: string, data: any) => {
     if (socketRef.current && isConnectedToTable) {
-      socketRef.current.emit(event, data);
+      socketRef.current.emit(event, { ...data, channel: tableChannel });
     } else {
       console.warn("Cannot emit event - not connected to table socket");
     }
