@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/hooks/useAppSelector";
 import { leaveTable } from "@/store/tableSlice";
 import { usePokerTableSocket } from "@/hooks/usePokerTableSocket";
@@ -8,15 +8,33 @@ import { useConfirmationModal } from "@/contexts/ConfirmationModalContext";
 import { useRouter } from "next/navigation";
 import { showToast } from "@/utils/toast";
 import { useSocketWithRedux } from "@/hooks/useSocketWithRedux";
+import Image from "next/image";
+import { useOrientation } from "@/hooks/useOrientation";
 
 export const PokerTableView: React.FC = () => {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { showConfirmation } = useConfirmationModal();
   const [isStartingGame, setIsStartingGame] = useState(false);
+  const orientation = useOrientation();
+  const [isMobile, setIsMobile] = useState(false);
 
   const { currentTable, isLeaving } = useAppSelector((state) => state.table);
   const { user } = useAppSelector((state) => state.auth);
+
+  // Check if device is mobile
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkIfMobile();
+    window.addEventListener("resize", checkIfMobile);
+
+    return () => {
+      window.removeEventListener("resize", checkIfMobile);
+    };
+  }, []);
 
   // Get socket functions for starting the game
   const { startGame } = useSocketWithRedux();
@@ -117,37 +135,116 @@ export const PokerTableView: React.FC = () => {
     );
   }
 
+  // Show landscape warning on mobile
+  if (isMobile && orientation.isPortrait) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
+        <div className="text-center text-white max-w-sm">
+          <div className="text-5xl mb-6 animate-pulse">📱↔️</div>
+          <h1 className="text-2xl font-bold mb-4">Please Rotate Your Device</h1>
+          <p className="text-gray-300 mb-6">
+            For the best poker experience, please rotate your device to
+            landscape mode.
+          </p>
+          <div className="w-32 h-32 mx-auto border-4 border-gray-500 rounded-lg flex items-center justify-center animate-rotate">
+            <span className="text-4xl transform rotate-90">📱</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Function to render a player seat
+  const renderPlayerSeat = (position: number, className: string) => {
+    const player = currentTable.players.find((p) => p.position === position);
+    const isCurrentUser = player?.user.id === user?.id;
+    const isOwner = player?.position === 1;
+
+    // Adjust seat size based on screen size
+    const seatSize = isMobile ? "scale-75" : "sm:scale-90 md:scale-100";
+
+    return (
+      <div className={`absolute ${className} ${seatSize} transform-gpu`}>
+        <div
+          className={`bg-black rounded-full p-2 sm:p-3 border-2 ${
+            player ? "border-blue-500" : "border-gray-700"
+          } ${isCurrentUser ? "ring-2 ring-yellow-400" : ""}`}
+        >
+          {player ? (
+            <div className="text-center">
+              <div
+                className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center mx-auto mb-1 ${
+                  isOwner ? "bg-yellow-600" : "bg-blue-600"
+                }`}
+              >
+                <span className="text-white font-bold text-sm sm:text-base md:text-lg">
+                  {player.user.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="text-white font-medium text-xs sm:text-sm truncate max-w-[80px] sm:max-w-[100px]">
+                {player.user.name}
+              </div>
+              <div className="text-gray-400 text-xs font-mono">
+                {player.balance.toLocaleString()}
+              </div>
+              <div className="flex flex-col gap-1 mt-1">
+                {isCurrentUser && (
+                  <div className="text-yellow-400 text-xs font-bold">YOU</div>
+                )}
+                {isOwner && (
+                  <div className="text-yellow-300 text-xs font-bold hidden sm:block">
+                    OWNER
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center text-gray-500">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-1">
+                <span className="text-gray-400 text-xs sm:text-sm">?</span>
+              </div>
+              <div className="text-gray-400 text-xs sm:text-sm">Empty</div>
+              <div className="text-gray-500 text-xs hidden sm:block">
+                Seat {position}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-gray-900 relative">
+    <div className="min-h-screen bg-gray-900 relative overflow-hidden">
       {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 p-4">
+      <div className="bg-gray-800 border-b border-gray-700 p-2 sm:p-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-bold text-white">
+          <div className="flex items-center space-x-2 sm:space-x-4">
+            <h1 className="text-base sm:text-xl font-bold text-white">
               Table #{currentTable.id}
             </h1>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 sm:space-x-2">
               <div
-                className={`w-3 h-3 rounded-full ${
+                className={`w-2 sm:w-3 h-2 sm:h-3 rounded-full ${
                   isConnected ? "bg-green-500" : "bg-red-500"
                 }`}
               ></div>
-              <span className="text-sm text-gray-300">
+              <span className="text-xs sm:text-sm text-gray-300">
                 {isConnected ? "Connected" : "Disconnected"}
               </span>
             </div>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             <div className="text-right">
-              <div className="text-sm text-gray-400">Stakes</div>
-              <div className="text-white font-mono">
+              <div className="text-xs sm:text-sm text-gray-400">Stakes</div>
+              <div className="text-white font-mono text-xs sm:text-base">
                 {currentTable.stake.blind.small_formatted}/
                 {currentTable.stake.blind.big_formatted}
               </div>
             </div>
             <button
               onClick={() => window.location.reload()}
-              className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              className="px-2 py-1 sm:px-3 sm:py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               title="Refresh table data"
             >
               🔄
@@ -155,141 +252,141 @@ export const PokerTableView: React.FC = () => {
             <button
               onClick={handleLeaveTable}
               disabled={isLeaving}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+              className="px-2 py-1 sm:px-4 sm:py-2 bg-red-600 text-white text-xs sm:text-sm rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
             >
-              {isLeaving ? "Leaving..." : "Leave Table"}
+              {isLeaving ? "Leaving..." : "Leave"}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Table Info */}
-      <div className="p-6">
-        <div className="bg-gray-800 rounded-lg p-4 mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <div className="text-sm text-gray-400">Players</div>
-              <div className="text-white font-bold">
-                {currentTable.current_players}/{currentTable.max_players}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-400">Min Buy-in</div>
-              <div className="text-white font-mono">
-                {currentTable.stake.buy_in.min_formatted}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-400">Max Buy-in</div>
-              <div className="text-white font-mono">
-                {currentTable.stake.buy_in.max_formatted}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-400">Your Position</div>
-              <div className="text-white font-bold">
-                {currentTable.players.find((p) => p.user.id === user?.id)
-                  ?.position || "N/A"}
+      {/* Poker Table */}
+      <div className="relative w-full h-[calc(100vh-60px)] sm:h-[calc(100vh-80px)] flex items-center justify-center">
+        <div className="relative w-full max-w-5xl h-full max-h-[800px]">
+          {/* Table Surface - Oval Shape */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="relative w-[95%] sm:w-[90%] h-[60%] sm:h-[70%]">
+              {/* Poker table background */}
+              <Image
+                src="/images/poker_table.png"
+                alt="Poker Table"
+                fill
+                priority
+                className="object-cover rounded-[50%]"
+              />
+
+              {/* Player positions - responsive positioning */}
+              {/* Top players */}
+              {renderPlayerSeat(
+                1,
+                "top-0 left-1/4 -translate-x-1/2 -translate-y-1/2"
+              )}
+              {renderPlayerSeat(
+                2,
+                "top-0 left-3/4 -translate-x-1/2 -translate-y-1/2"
+              )}
+
+              {/* Right side player */}
+              {renderPlayerSeat(
+                3,
+                "top-1/4 right-0 translate-x-1/2 -translate-y-1/2"
+              )}
+              {renderPlayerSeat(
+                4,
+                "top-3/4 right-0 translate-x-1/2 -translate-y-1/2"
+              )}
+
+              {/* Bottom players */}
+              {renderPlayerSeat(
+                5,
+                "bottom-0 left-1/4 -translate-x-1/2 translate-y-1/2"
+              )}
+              {renderPlayerSeat(
+                6,
+                "bottom-0 left-3/4 -translate-x-1/2 translate-y-1/2"
+              )}
+
+              {/* Left side player */}
+              {renderPlayerSeat(
+                7,
+                "top-1/4 left-0 -translate-x-1/2 -translate-y-1/2"
+              )}
+              {renderPlayerSeat(
+                8,
+                "top-3/4 left-0 -translate-x-1/2 -translate-y-1/2"
+              )}
+
+              {/* Center content - Game status */}
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
+                <div className="bg-black/50 backdrop-blur-sm px-3 sm:px-6 py-2 sm:py-4 rounded-xl text-center">
+                  <h3 className="text-base sm:text-lg font-bold text-white mb-1 sm:mb-2">
+                    Game Status
+                  </h3>
+                  <p className="text-gray-300 text-xs sm:text-base mb-2 sm:mb-4">
+                    {currentTable.current_players < 2
+                      ? "Waiting for more players to start the game..."
+                      : "Game is ready to start!"}
+                  </p>
+
+                  {/* Start Game Button */}
+                  {canStartGame && isTableOwner && (
+                    <button
+                      onClick={handleStartGame}
+                      disabled={isStartingGame}
+                      className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                    >
+                      {isStartingGame ? (
+                        <div className="flex items-center justify-center">
+                          <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1 sm:mr-2"></div>
+                          Starting...
+                        </div>
+                      ) : (
+                        "Start Game"
+                      )}
+                    </button>
+                  )}
+
+                  {canStartGame && !isTableOwner && (
+                    <p className="text-gray-400 text-xs sm:text-sm">
+                      Waiting for the table owner to start...
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Players Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-          {Array.from({ length: currentTable.max_players }, (_, index) => {
-            const player = currentTable.players.find(
-              (p) => p.position === index + 1
-            );
-            const isCurrentUser = player?.user.id === user?.id;
-            const isOwner = player?.position === 1;
-
-            return (
-              <div
-                key={index}
-                className={`bg-gray-800 rounded-lg p-4 border-2 ${
-                  player ? "border-blue-500" : "border-gray-700"
-                } ${isCurrentUser ? "ring-2 ring-yellow-400" : ""}`}
-              >
-                {player ? (
-                  <div className="text-center">
-                    <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 ${
-                        isOwner ? "bg-yellow-600" : "bg-blue-600"
-                      }`}
-                    >
-                      <span className="text-white font-bold text-lg">
-                        {player.user.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="text-white font-medium text-sm truncate">
-                      {player.user.name}
-                    </div>
-                    <div className="text-gray-400 text-xs font-mono">
-                      {player.balance.toLocaleString()} chips
-                    </div>
-                    <div className="flex flex-col gap-1 mt-1">
-                      {isCurrentUser && (
-                        <div className="text-yellow-400 text-xs font-bold">
-                          YOU
-                        </div>
-                      )}
-                      {isOwner && (
-                        <div className="text-yellow-300 text-xs font-bold">
-                          OWNER
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center text-gray-500">
-                    <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <span className="text-gray-400">?</span>
-                    </div>
-                    <div className="text-gray-400 text-sm">Empty Seat</div>
-                    <div className="text-gray-500 text-xs">
-                      Position {index + 1}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Game Status */}
-        <div className="mt-6 text-center">
-          <div className="bg-gray-800 rounded-lg p-4">
-            <h3 className="text-lg font-bold text-white mb-2">Game Status</h3>
-            <p className="text-gray-300 mb-4">
-              {currentTable.current_players < 2
-                ? "Waiting for more players to start the game..."
-                : "Game is ready to start!"}
-            </p>
-
-            {/* Start Game Button */}
-            {canStartGame && isTableOwner && (
-              <button
-                onClick={handleStartGame}
-                disabled={isStartingGame}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
-              >
-                {isStartingGame ? (
-                  <div className="flex items-center justify-center">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Starting Game...
-                  </div>
-                ) : (
-                  "Start Game"
-                )}
-              </button>
-            )}
-
-            {canStartGame && !isTableOwner && (
-              <p className="text-gray-400 text-sm">
-                Waiting for the table owner to start the game...
-              </p>
-            )}
+      {/* Table Info - Bottom panel */}
+      <div className="absolute bottom-0 left-0 right-0 bg-gray-800/80 backdrop-blur-sm p-2 sm:p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 max-w-3xl mx-auto">
+          <div>
+            <div className="text-xs sm:text-sm text-gray-400">Players</div>
+            <div className="text-white font-bold text-sm sm:text-base">
+              {currentTable.current_players}/{currentTable.max_players}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs sm:text-sm text-gray-400">Min Buy-in</div>
+            <div className="text-white font-mono text-sm sm:text-base">
+              {currentTable.stake.buy_in.min_formatted}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs sm:text-sm text-gray-400">Max Buy-in</div>
+            <div className="text-white font-mono text-sm sm:text-base">
+              {currentTable.stake.buy_in.max_formatted}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs sm:text-sm text-gray-400">
+              Your Position
+            </div>
+            <div className="text-white font-bold text-sm sm:text-base">
+              {currentTable.players.find((p) => p.user.id === user?.id)
+                ?.position || "N/A"}
+            </div>
           </div>
         </div>
       </div>

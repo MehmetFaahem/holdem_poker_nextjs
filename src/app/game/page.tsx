@@ -178,6 +178,14 @@ export default function GamePage() {
     }
   }, [currentPlayer, gameState, gameId]);
 
+  // Auto-start game when 3 players join
+  useEffect(() => {
+    if (gameState && !gameState.isStarted && gameState.players.length === 3) {
+      console.log("Auto-starting game with 3 players");
+      handleStartGame();
+    }
+  }, [gameState?.players.length]);
+
   // Handle cleanup when Redux state is reset
   useEffect(() => {
     if (!gameState && !currentPlayer && isInGame) {
