@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSocketWithRedux } from "@/hooks/useSocketWithRedux";
 import { useTableSocket } from "@/hooks/useTableSocket";
 import { useOrientation, lockOrientation } from "@/hooks/useOrientation";
 import { GameLobby } from "@/components/GameLobby";
@@ -17,6 +16,8 @@ import {
   closeChat,
   updateGameState,
   setCurrentPlayer,
+  addChatMessage,
+  resetGame,
 } from "@/store/gameSlice";
 import { clearTable } from "@/store/tableSlice";
 import type { StakeData } from "@/components/Stakes";
@@ -24,26 +25,20 @@ import type { GameState, Player } from "@/types/poker";
 
 export default function GamePage() {
   const {
-    gameState,
-    currentPlayer,
-    connectionStatus,
-    isLoading,
-    chat,
-    joinGame,
-    joinGameWithStakes,
-    leaveGame,
-    startGame,
-    playerAction,
-    sendChatMessage,
-  } = useSocketWithRedux();
-
-  const { isConnectedToTable, tableChannel, leaveTableSocket, emitTableEvent } =
-    useTableSocket();
+    isConnectedToTable,
+    tableChannel,
+    leaveTableSocket,
+    emitTableEvent,
+    socket,
+  } = useTableSocket();
 
   const orientation = useOrientation();
   const { showConfirmation } = useConfirmationModal();
   const dispatch = useAppDispatch();
   const { currentTable } = useAppSelector((state) => state.table);
+  const { gameState, currentPlayer, isLoading, chat } = useAppSelector(
+    (state) => state.game
+  );
 
   const [gameId, setGameId] = useState<string | null>(null);
   const [isInGame, setIsInGame] = useState(false);
@@ -222,7 +217,9 @@ export default function GamePage() {
 
   const handleJoinGame = (gameId: string, playerName: string) => {
     setGameId(gameId);
-    joinGame(gameId, playerName);
+    if (socket && isConnectedToTable) {
+      emitTableEvent("join-game", { gameId, playerName });
+    }
   };
 
   const handleCreateRoom = (playerName: string) => {
@@ -232,7 +229,9 @@ export default function GamePage() {
     setGameId(roomId);
 
     // Join the newly created room
-    joinGame(roomId, playerName);
+    if (socket && isConnectedToTable) {
+      emitTableEvent("join-game", { gameId: roomId, playerName });
+    }
   };
 
   const handleCreateRoomWithStakes = (
@@ -247,7 +246,13 @@ export default function GamePage() {
     console.log("Creating room with stakes:", stakeData);
 
     // Join the newly created room with custom stakes
-    joinGameWithStakes(roomId, playerName, stakeData);
+    if (socket && isConnectedToTable) {
+      emitTableEvent("join-game-with-stakes", {
+        gameId: roomId,
+        playerName,
+        stakeData,
+      });
+    }
   };
 
   const handleLeaveGame = async () => {
@@ -269,9 +274,12 @@ export default function GamePage() {
       // If user joined via table, use table socket leave
       if (currentTable && isConnectedToTable) {
         await leaveTableSocket();
-      } else {
+      } else if (socket && isConnectedToTable) {
         // Regular game leave for non-table games
-        leaveGame(gameId, currentPlayer.id);
+        emitTableEvent("leave-game", { gameId, playerId: currentPlayer.id });
+
+        // Reset Redux state immediately when leaving
+        dispatch(resetGame());
       }
 
       // Reset local state immediately
@@ -297,8 +305,13 @@ export default function GamePage() {
     action: "fold" | "check" | "call" | "bet" | "raise" | "all-in",
     amount?: number
   ) => {
-    if (gameId && currentPlayer) {
-      playerAction(gameId, currentPlayer.id, action, amount);
+    if (gameId && currentPlayer && socket && isConnectedToTable) {
+      emitTableEvent("player-action", {
+        gameId,
+        playerId: currentPlayer.id,
+        action,
+        amount,
+      });
     }
   };
 
@@ -310,9 +323,10 @@ export default function GamePage() {
 
     const actualGameId = gameId || gameState?.id;
 
-    if (actualGameId) {
-      console.log("Calling startGame with gameId:", actualGameId);
-      startGame(actualGameId);
+    if (actualGameId && socket && isConnectedToTable) {
+      console.log("Emitting start-game event to server");
+      emitTableEvent("start-game", { gameId: actualGameId });
+
       // Update local gameId if it was missing
       if (!gameId && gameState?.id) {
         setGameId(gameState.id);
@@ -333,8 +347,13 @@ export default function GamePage() {
 
   const handleSendChatMessage = (message: string) => {
     const actualGameId = gameId || gameState?.id;
-    if (actualGameId) {
-      sendChatMessage(actualGameId, message);
+    if (actualGameId && currentPlayer && socket && isConnectedToTable) {
+      emitTableEvent("send-chat-message", {
+        gameId: actualGameId,
+        playerId: currentPlayer.id,
+        playerName: currentPlayer.name,
+        message: message.trim(),
+      });
     }
   };
 
@@ -366,26 +385,21 @@ export default function GamePage() {
         <div className="fixed top-6 right-6 z-50">
           <div
             className={`glass px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
-              connectionStatus === "connected"
+              isConnectedToTable
                 ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                : connectionStatus === "connecting"
-                ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                : "bg-red-500/20 text-red-400 border border-red-500/30"
+                : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
             }`}
           >
             <div className="flex items-center space-x-2">
               <div
                 className={`w-2 h-2 rounded-full ${
-                  connectionStatus === "connected"
+                  isConnectedToTable
                     ? "bg-green-400 animate-pulse"
-                    : connectionStatus === "connecting"
-                    ? "bg-amber-400 animate-pulse"
-                    : "bg-red-400 animate-pulse"
+                    : "bg-amber-400 animate-pulse"
                 }`}
               ></div>
               <span>
-                {connectionStatus.charAt(0).toUpperCase() +
-                  connectionStatus.slice(1)}
+                {isConnectedToTable ? "Connected" : "Connecting"}
                 {isLoading && " (Processing...)"}
               </span>
             </div>
@@ -396,7 +410,7 @@ export default function GamePage() {
           <GameLobby
             onJoinGame={handleJoinGame}
             onCreateRoom={handleCreateRoom}
-            isConnected={connectionStatus === "connected"}
+            isConnected={isConnectedToTable}
             createdRoomId={createdRoomId}
           />
         </div>
@@ -448,58 +462,28 @@ export default function GamePage() {
 
       {/* Connection Status in Game */}
       <div className="fixed top-6 left-6 z-50 scale-70 lg:scale-100 space-y-2">
-        {/* Game Socket Status */}
+        {/* Table Socket Status */}
         <div
           className={`glass px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
-            connectionStatus === "connected"
-              ? "bg-green-500/20 text-green-400 border border-green-500/30"
-              : connectionStatus === "connecting"
-              ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-              : "bg-red-500/20 text-red-400 border border-red-500/30"
+            isConnectedToTable
+              ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+              : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
           }`}
         >
           <div className="flex items-center space-x-2">
             <div
               className={`w-2 h-2 rounded-full ${
-                connectionStatus === "connected"
-                  ? "bg-green-400 animate-pulse"
-                  : connectionStatus === "connecting"
-                  ? "bg-amber-400 animate-pulse"
-                  : "bg-red-400 animate-pulse"
+                isConnectedToTable
+                  ? "bg-blue-400 animate-pulse"
+                  : "bg-amber-400 animate-pulse"
               }`}
             ></div>
             <span>
-              Game{" "}
-              {connectionStatus.charAt(0).toUpperCase() +
-                connectionStatus.slice(1)}
+              Table {isConnectedToTable ? "Connected" : "Connecting..."}
               {isLoading && " (Processing...)"}
             </span>
           </div>
         </div>
-
-        {/* Table Socket Status */}
-        {currentTable && (
-          <div
-            className={`glass px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
-              isConnectedToTable
-                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-            }`}
-          >
-            <div className="flex items-center space-x-2">
-              <div
-                className={`w-2 h-2 rounded-full ${
-                  isConnectedToTable
-                    ? "bg-blue-400 animate-pulse"
-                    : "bg-amber-400 animate-pulse"
-                }`}
-              ></div>
-              <span>
-                Table {isConnectedToTable ? "Connected" : "Connecting..."}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Game Controls */}
