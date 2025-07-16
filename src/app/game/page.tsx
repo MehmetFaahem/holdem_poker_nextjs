@@ -19,6 +19,7 @@ import type { StakeData } from "@/components/Stakes";
 export default function GamePage() {
   // Check if user is at a poker table first
   const { currentTable } = useAppSelector((state) => state.table);
+  const { user } = useAppSelector((state) => state.auth);
 
   // Only initialize the game socket if not at a poker table
   const {
@@ -151,13 +152,46 @@ export default function GamePage() {
     if (startedGameId && gameMode === "poker_table" && currentTable) {
       console.log("Game started from poker table:", startedGameId);
       setGameId(startedGameId);
-      // setIsInGame(true); // This will be set by the useEffect below
+      setShowWelcome(false); // Skip welcome screen when coming from poker table
+      setIsFromStakes(true); // Mark as coming from stakes/table
+
+      // Check if we need to auto-join players and start the game
+      const autoJoinPlayers = sessionStorage.getItem("autoJoinPlayers");
+      const autoGameStakes = sessionStorage.getItem("autoGameStakes");
+
+      if (autoJoinPlayers && autoGameStakes) {
+        try {
+          const playerNames = JSON.parse(autoJoinPlayers);
+          const stakeData = JSON.parse(autoGameStakes);
+
+          // Find current user in the player list
+          const currentUserName = user?.name;
+          if (currentUserName && playerNames.includes(currentUserName)) {
+            console.log("Auto-joining game with stakes for poker table");
+
+            // Join the game with stakes
+            setTimeout(() => {
+              joinGameWithStakes(startedGameId, currentUserName, stakeData);
+
+              // Auto-start the game after joining
+              setTimeout(() => {
+                console.log("Auto-starting game after joining");
+                startGame(startedGameId);
+              }, 2000);
+            }, 1000);
+          }
+        } catch (error) {
+          console.error("Error processing auto-join data:", error);
+        }
+      }
 
       // Clear the session storage after using it
       if (typeof window !== "undefined") {
         sessionStorage.removeItem("gameId");
         sessionStorage.removeItem("gameMode");
         sessionStorage.removeItem("gameTableId");
+        sessionStorage.removeItem("autoJoinPlayers");
+        sessionStorage.removeItem("autoGameStakes");
       }
     }
   }, [currentTable]);

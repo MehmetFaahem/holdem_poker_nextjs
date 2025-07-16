@@ -3,10 +3,18 @@ import { io, Socket } from "socket.io-client";
 import { useAppDispatch, useAppSelector } from "./useAppSelector";
 import { updateTablePlayer, removeTablePlayer } from "@/store/tableSlice";
 import { showToast } from "@/utils/toast";
+import { useRouter } from "next/navigation";
+import { useSocketWithRedux } from "./useSocketWithRedux";
 
 export const usePokerTableSocket = (tableId: number | null) => {
   const dispatch = useAppDispatch();
   const socketRef = useRef<Socket | null>(null);
+  const router = useRouter();
+  const { user } = useAppSelector((state) => state.auth);
+  const { currentTable } = useAppSelector((state) => state.table);
+
+  // Get the game socket functions
+  const { joinGameWithStakes } = useSocketWithRedux();
 
   // Initialize socket connection to external poker table server
   useEffect(() => {
@@ -30,6 +38,60 @@ export const usePokerTableSocket = (tableId: number | null) => {
     });
 
     const socket = socketRef.current;
+
+    // Function to handle the hand start event and start the game
+    const handleHandStart = (data: any) => {
+      console.log("Processing hand start event with data:", data);
+
+      if (!data || !data.table) {
+        console.log("Invalid hand start data");
+        return;
+      }
+
+      if (!user || !user.name) {
+        console.log("No user name available for joining game");
+        showToast.error("Cannot join game - user not found");
+        return;
+      }
+
+      try {
+        // Generate a game ID based on the table ID
+        const gameId = `table_${data.table.id}`;
+
+        // Store the game data for the actual game
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("gameTableId", data.table.id.toString());
+          sessionStorage.setItem("gameMode", "poker_table");
+          sessionStorage.setItem("gameId", gameId);
+
+          // Store player names from the table data to auto-join them
+          const playerNames = data.table.players.map((p: any) => p.user.name);
+          sessionStorage.setItem(
+            "autoJoinPlayers",
+            JSON.stringify(playerNames)
+          );
+
+          // Store stake information
+          const stakeData = {
+            stakes: `${data.table.stake.blind.small_formatted}/${data.table.stake.blind.big_formatted}`,
+            buyIn: `${data.table.stake.buy_in.min_formatted} - ${data.table.stake.buy_in.max_formatted}`,
+            minCall: data.table.stake.blind.small,
+            maxCall: data.table.stake.blind.big,
+            startingChips: data.table.stake.buy_in.min,
+          };
+          sessionStorage.setItem("autoGameStakes", JSON.stringify(stakeData));
+        }
+
+        showToast.success("Game starting automatically!");
+        showToast.gameUpdate("Redirecting to game...");
+
+        // Navigate to the game page - the game page will handle auto-joining and starting
+        router.push("/game");
+      } catch (error) {
+        console.error("Failed to process hand start event:", error);
+        showToast.error("Failed to start game automatically");
+      }
+    };
 
     // Connection event handlers
     socket.on("connect", () => {
@@ -87,6 +149,11 @@ export const usePokerTableSocket = (tableId: number | null) => {
           }
           break;
 
+        case "poker.hand-start":
+          console.log("Hand start event received:", eventData.data);
+          handleHandStart(eventData.data);
+          break;
+
         default:
           console.log(
             "Unhandled table event:",
@@ -134,6 +201,11 @@ export const usePokerTableSocket = (tableId: number | null) => {
               }
               break;
 
+            case "poker.hand-start":
+              console.log("Hand start event received (onAny):", eventData.data);
+              handleHandStart(eventData.data);
+              break;
+
             default:
               console.log("Unhandled event in onAny:", eventData.event);
               break;
@@ -177,6 +249,12 @@ export const usePokerTableSocket = (tableId: number | null) => {
       }
     });
 
+    // Direct listener for poker.hand-start event
+    socket.on("poker.hand-start", (eventData: any) => {
+      console.log("Direct poker.hand-start event:", eventData);
+      handleHandStart(eventData);
+    });
+
     // Test the connection after a delay
     setTimeout(() => {
       if (socket.connected) {
@@ -200,7 +278,7 @@ export const usePokerTableSocket = (tableId: number | null) => {
         socketRef.current = null;
       }
     };
-  }, [tableId, dispatch]);
+  }, [tableId, dispatch, router, user, joinGameWithStakes, currentTable]);
 
   // Function to manually disconnect
   const disconnect = useCallback(() => {

@@ -110,10 +110,8 @@ export const PokerTableView: React.FC = () => {
     }
   };
 
-  // Check if current user can start the game (e.g., is the table owner or has permission)
+  // Check if current user can start the game (need at least 2 players)
   const canStartGame = currentTable && currentTable.current_players >= 2;
-  const isTableOwner =
-    currentTable?.players.find((p) => p.user.id === user?.id)?.position === 1;
 
   if (!currentTable) {
     return (
@@ -158,7 +156,6 @@ export const PokerTableView: React.FC = () => {
   const renderPlayerSeat = (position: number, className: string) => {
     const player = currentTable.players.find((p) => p.position === position);
     const isCurrentUser = player?.user.id === user?.id;
-    const isOwner = player?.position === 1;
 
     // Adjust seat size based on screen size
     const seatSize = isMobile ? "scale-75" : "sm:scale-90 md:scale-100";
@@ -166,17 +163,13 @@ export const PokerTableView: React.FC = () => {
     return (
       <div className={`absolute ${className} ${seatSize} transform-gpu`}>
         <div
-          className={`bg-black rounded-full p-2 sm:p-3 border-2 ${
+          className={`bg-black w-[100px] h-[120px] rounded-full p-2 sm:p-3 border-2 ${
             player ? "border-blue-500" : "border-gray-700"
           } ${isCurrentUser ? "ring-2 ring-yellow-400" : ""}`}
         >
           {player ? (
             <div className="text-center">
-              <div
-                className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center mx-auto mb-1 ${
-                  isOwner ? "bg-yellow-600" : "bg-blue-600"
-                }`}
-              >
+              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center mx-auto mb-1 bg-blue-600">
                 <span className="text-white font-bold text-sm sm:text-base md:text-lg">
                   {player.user.name.charAt(0).toUpperCase()}
                 </span>
@@ -191,11 +184,11 @@ export const PokerTableView: React.FC = () => {
                 {isCurrentUser && (
                   <div className="text-yellow-400 text-xs font-bold">YOU</div>
                 )}
-                {isOwner && (
+                {/* {isOwner && (
                   <div className="text-yellow-300 text-xs font-bold hidden sm:block">
                     OWNER
                   </div>
-                )}
+                )} */}
               </div>
             </div>
           ) : (
@@ -325,11 +318,15 @@ export const PokerTableView: React.FC = () => {
                   <p className="text-gray-300 text-xs sm:text-base mb-2 sm:mb-4">
                     {currentTable.current_players < 2
                       ? "Waiting for more players to start the game..."
-                      : "Game is ready to start!"}
+                      : currentTable.current_players === 3
+                      ? "3 players joined! Game will start automatically."
+                      : currentTable.current_players > 3
+                      ? "Game is ready to start!"
+                      : "Game will start automatically when 3 players join."}
                   </p>
 
-                  {/* Start Game Button */}
-                  {canStartGame && isTableOwner && (
+                  {/* Start Game Button - Any player can start when there are enough players */}
+                  {canStartGame && currentTable.current_players !== 3 && (
                     <button
                       onClick={handleStartGame}
                       disabled={isStartingGame}
@@ -345,11 +342,11 @@ export const PokerTableView: React.FC = () => {
                       )}
                     </button>
                   )}
-
-                  {canStartGame && !isTableOwner && (
-                    <p className="text-gray-400 text-xs sm:text-sm">
-                      Waiting for the table owner to start...
-                    </p>
+                  {canStartGame && currentTable.current_players === 3 && (
+                    <div className="flex items-center justify-center text-yellow-300 text-xs sm:text-sm animate-pulse">
+                      <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-yellow-300 border-t-transparent rounded-full animate-spin mr-1 sm:mr-2"></div>
+                      Starting game automatically...
+                    </div>
                   )}
                 </div>
               </div>

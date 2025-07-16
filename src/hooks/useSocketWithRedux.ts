@@ -48,7 +48,7 @@ export const useSocketWithRedux = () => {
 
     dispatch(setConnectionStatus("connecting"));
 
-    // Determine the correct URL for Socket.IO connection
+    // Use local server for actual game logic (external server is only for table events)
     const socketUrl =
       process.env.NODE_ENV === "production"
         ? window.location.origin // Use current domain in production
