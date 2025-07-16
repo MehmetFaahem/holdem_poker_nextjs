@@ -39,12 +39,16 @@ export const useSocketWithRedux = () => {
     const socketUrl =
       process.env.NODE_ENV === "production"
         ? window.location.origin // Use current domain in production
-        : "http://localhost:3000"; // Use localhost in development
+        : "http://208.72.36.126:3012"; // Use localhost in development
 
+    // Initialize socket with improved configuration
     socketRef.current = io(socketUrl, {
       path: "/api/socket",
       transports: ["websocket"],
-      timeout: 5000,
+      timeout: 10000,
+      forceNew: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     });
 
     const socket = socketRef.current;
