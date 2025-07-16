@@ -3,12 +3,14 @@ import { useEffect, useState } from "react";
 interface ActionBadgeProps {
   action: string;
   amount?: number;
+  isAutoAction?: boolean;
   onExpire: () => void;
 }
 
 export const ActionBadge: React.FC<ActionBadgeProps> = ({
   action,
   amount,
+  isAutoAction = false,
   onExpire,
 }) => {
   const [isVisible, setIsVisible] = useState(true);
@@ -101,10 +103,13 @@ export const ActionBadge: React.FC<ActionBadgeProps> = ({
         className={`${config.bgColor} ${config.borderColor} ${config.textColor} 
           px-3 py-1 rounded-full border-2 backdrop-blur-sm shadow-lg
           text-xs font-bold flex items-center space-x-1
-          animate-bounce-in whitespace-nowrap`}
+          animate-bounce-in whitespace-nowrap ${
+            isAutoAction ? "opacity-75" : ""
+          }`}
       >
         <span className="text-sm">{config.emoji}</span>
         <span>{config.text}</span>
+        {isAutoAction && <span className="text-xs opacity-75">(Auto)</span>}
         {amount && amount > 0 && (
           <span className="ml-1">${amount.toLocaleString()}</span>
         )}

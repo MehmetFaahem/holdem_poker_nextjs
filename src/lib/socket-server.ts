@@ -642,13 +642,16 @@ function handlePlayerAction(
 
   // === ACTION COMPLETED SUCCESSFULLY ===
 
-  // 7. Mark player as having acted this round (CRITICAL for one-action-per-turn)
+  // 7. Clear action timer since player acted
+  clearActionTimer(game);
+
+  // 8. Mark player as having acted this round (CRITICAL for one-action-per-turn)
   player.hasActedThisRound = true;
 
-  // 8. Release action processing lock
+  // 9. Release action processing lock
   player.isProcessingAction = false;
 
-  // 9. Log successful action completion
+  // 10. Log successful action completion
   console.log(
     `✅ ACTION COMPLETED: ${player.name} successfully performed ${action} in ${game.gamePhase} phase`
   );
@@ -656,7 +659,7 @@ function handlePlayerAction(
     `🔒 TURN LOCKED: ${player.name} cannot act again until next betting round`
   );
 
-  // 10. Check if betting round is complete
+  // 11. Check if betting round is complete
   const roundComplete = checkBettingRoundComplete(game);
   if (roundComplete) {
     console.log(`🏁 BETTING ROUND COMPLETE: Moving to next phase`);
@@ -664,7 +667,7 @@ function handlePlayerAction(
     return;
   }
 
-  // 11. Move to next player immediately - turn ends here
+  // 12. Move to next player immediately - turn ends here
   console.log(`➡️ TURN PASSING: Moving from ${player.name} to next player`);
   moveToNextPlayer(game);
   io?.to(gameId).emit("game-updated", game);
@@ -688,6 +691,149 @@ function moveToNextPlayer(game: any) {
   if (attempts >= maxAttempts) {
     game.currentPlayerIndex = startingIndex;
   }
+
+  // Start action timer for the new current player
+  startActionTimer(game);
+}
+
+// Action timer management functions
+function startActionTimer(game: any) {
+  // Clear any existing timer
+  clearActionTimer(game);
+
+  // Don't start timer if game is not in an active betting phase
+  if (
+    !game.isStarted ||
+    game.gamePhase === "waiting" ||
+    game.gamePhase === "ended" ||
+    game.gamePhase === "showdown"
+  ) {
+    return;
+  }
+
+  const currentPlayer = game.players[game.currentPlayerIndex];
+  if (!currentPlayer || currentPlayer.isFolded || currentPlayer.isAllIn) {
+    return;
+  }
+
+  const startTime = Date.now();
+  const timeoutDuration = 10000; // 10 seconds
+
+  // Initialize action timer in game state
+  game.actionTimer = {
+    startTime,
+    timeoutDuration,
+    remainingTime: timeoutDuration,
+    isActive: true,
+  };
+
+  console.log(
+    `⏰ TIMER STARTED: ${currentPlayer.name} has ${
+      timeoutDuration / 1000
+    } seconds to act`
+  );
+
+  // Set up the timeout to auto-fold
+  game.actionTimerInterval = setTimeout(() => {
+    handleActionTimeout(game);
+  }, timeoutDuration);
+
+  // Set up interval to update remaining time every second
+  game.actionTimerUpdateInterval = setInterval(() => {
+    updateActionTimer(game);
+  }, 1000);
+
+  // Emit initial timer state
+  io?.to(game.id).emit("game-updated", game);
+}
+
+function clearActionTimer(game: any) {
+  if (game.actionTimerInterval) {
+    clearTimeout(game.actionTimerInterval);
+    game.actionTimerInterval = null;
+  }
+
+  if (game.actionTimerUpdateInterval) {
+    clearInterval(game.actionTimerUpdateInterval);
+    game.actionTimerUpdateInterval = null;
+  }
+
+  if (game.actionTimer) {
+    game.actionTimer.isActive = false;
+    game.actionTimer = null;
+  }
+}
+
+function updateActionTimer(game: any) {
+  if (!game.actionTimer || !game.actionTimer.isActive) {
+    return;
+  }
+
+  const elapsed = Date.now() - game.actionTimer.startTime;
+  const remaining = Math.max(0, game.actionTimer.timeoutDuration - elapsed);
+
+  game.actionTimer.remainingTime = remaining;
+
+  // Emit timer update to all players
+  io?.to(game.id).emit("timer-update", {
+    remainingTime: remaining,
+    currentPlayerId: game.players[game.currentPlayerIndex]?.id,
+  });
+
+  // Stop updating if timer expired
+  if (remaining <= 0) {
+    if (game.actionTimerUpdateInterval) {
+      clearInterval(game.actionTimerUpdateInterval);
+      game.actionTimerUpdateInterval = null;
+    }
+  }
+}
+
+function handleActionTimeout(game: any) {
+  const currentPlayer = game.players[game.currentPlayerIndex];
+
+  if (!currentPlayer || currentPlayer.isFolded || currentPlayer.isAllIn) {
+    clearActionTimer(game);
+    return;
+  }
+
+  console.log(`⏰ ACTION TIMEOUT: Auto-folding ${currentPlayer.name}`);
+
+  // Clear timer first
+  clearActionTimer(game);
+
+  // Auto-fold the player
+  currentPlayer.isFolded = true;
+  currentPlayer.isActive = false;
+  currentPlayer.hasActedThisRound = true;
+
+  // Emit action notification
+  io?.to(game.id).emit("player-action-performed", {
+    playerId: currentPlayer.id,
+    playerName: currentPlayer.name,
+    action: "fold",
+    amount: 0,
+    isAutoAction: true,
+  });
+
+  console.log(
+    `✅ AUTO-FOLD COMPLETED: ${currentPlayer.name} was folded due to timeout`
+  );
+
+  // Check if betting round is complete
+  const roundComplete = checkBettingRoundComplete(game);
+  if (roundComplete) {
+    console.log(`🏁 BETTING ROUND COMPLETE: Moving to next phase`);
+    io?.to(game.id).emit("game-updated", game);
+    return;
+  }
+
+  // Move to next player
+  console.log(
+    `➡️ TURN PASSING: Moving from ${currentPlayer.name} to next player`
+  );
+  moveToNextPlayer(game);
+  io?.to(game.id).emit("game-updated", game);
 }
 
 function checkBettingRoundComplete(game: any) {
@@ -803,6 +949,9 @@ function checkBettingRoundComplete(game: any) {
 }
 
 function advanceGamePhase(game: any) {
+  // Clear any active action timer when advancing phase
+  clearActionTimer(game);
+
   game.players.forEach((p: any) => {
     p.inPotThisRound = 0;
     p.hasActedThisRound = false;
@@ -1013,6 +1162,9 @@ function startNewHand(game: any) {
     game.currentBet = bigBlindAmount;
     game.minimumRaise = game.bigBlind;
     game.lastRaiseAmount = game.bigBlind;
+
+    // Find the first player who can act and start timer
+    moveToNextPlayer(game);
   }
 
   io?.to(game.id).emit("game-updated", game);
@@ -1059,10 +1211,26 @@ function handleDisconnect(socket: Socket) {
   for (const [gameId, game] of games.entries()) {
     const playerIndex = game.players.findIndex((p: any) => p.id === playerId);
     if (playerIndex !== -1) {
+      // Check if the disconnecting player was the current player
+      const wasCurrentPlayer =
+        game.players[game.currentPlayerIndex]?.id === playerId;
+
       game.players.splice(playerIndex, 1);
+
       if (game.players.length === 0) {
+        // Clear timer and cleanup game
+        clearActionTimer(game);
         games.delete(gameId);
       } else {
+        // If the current player disconnected, move to next player
+        if (wasCurrentPlayer && game.isStarted) {
+          clearActionTimer(game);
+          // Adjust current player index if needed
+          if (game.currentPlayerIndex >= game.players.length) {
+            game.currentPlayerIndex = 0;
+          }
+          moveToNextPlayer(game);
+        }
         io?.to(gameId).emit("game-updated", game);
       }
     }

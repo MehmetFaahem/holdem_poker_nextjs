@@ -117,6 +117,7 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
           <ActionBadge
             action={playerAction.action}
             amount={playerAction.amount}
+            isAutoAction={playerAction.isAutoAction}
             onExpire={() =>
               dispatch(
                 removeActionBadge({

@@ -49,6 +49,13 @@ export interface GameState {
     buyIn: string;
     startingChips: number;
   };
+  // Action timer fields
+  actionTimer?: {
+    startTime: number;
+    timeoutDuration: number; // in milliseconds (10000 for 10 seconds)
+    remainingTime: number;
+    isActive: boolean;
+  } | null;
 }
 
 export interface SocketEvents {

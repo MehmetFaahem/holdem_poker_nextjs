@@ -5,6 +5,7 @@ interface PlayerAction {
   playerId: string;
   action: string;
   amount?: number;
+  isAutoAction?: boolean;
   timestamp: number;
 }
 
@@ -184,12 +185,14 @@ const gameSlice = createSlice({
         playerId: string;
         action: string;
         amount?: number;
+        isAutoAction?: boolean;
       }>
     ) => {
       const newAction: PlayerAction = {
         playerId: action.payload.playerId,
         action: action.payload.action,
         amount: action.payload.amount,
+        isAutoAction: action.payload.isAutoAction,
         timestamp: Date.now(),
       };
       console.log(`🎯 REDUX: Adding action badge`, newAction);

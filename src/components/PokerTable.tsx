@@ -5,6 +5,7 @@ import { GameState, Player } from "@/types/poker";
 import { PlayerSeat } from "./PlayerSeat";
 import { Card } from "./Card";
 import { ActionButtons } from "./ActionButtons";
+import { ActionTimer } from "./ActionTimer";
 import { showToast } from "@/utils/toast";
 import PokerActionButton from "./PokerActionButton";
 import Image from "next/image";
@@ -301,6 +302,21 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                           {gameState.gamePhase.toUpperCase()}
                         </div>
                       </div>
+
+                      {/* Action Timer */}
+                      {gameState.actionTimer?.isActive && (
+                        <div className="glass-dark px-4 py-3 rounded-xl">
+                          <ActionTimer
+                            timeRemaining={gameState.actionTimer.remainingTime}
+                            totalTime={gameState.actionTimer.timeoutDuration}
+                            isActive={gameState.actionTimer.isActive}
+                            playerName={
+                              gameState.players[gameState.currentPlayerIndex]
+                                ?.name
+                            }
+                          />
+                        </div>
+                      )}
 
                       {/* Community Cards */}
                       <div className="flex space-x-1 md:space-x-2">

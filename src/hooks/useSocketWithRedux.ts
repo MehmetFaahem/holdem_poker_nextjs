@@ -111,6 +111,7 @@ export const useSocketWithRedux = () => {
         playerName: string;
         action: string;
         amount?: number;
+        isAutoAction?: boolean;
       }) => {
         console.log(
           `🎯 ACTION BADGE RECEIVED: ${actionData.playerName} performed ${
@@ -124,6 +125,7 @@ export const useSocketWithRedux = () => {
             playerId: actionData.playerId,
             action: actionData.action,
             amount: actionData.amount,
+            isAutoAction: actionData.isAutoAction || false,
           })
         );
 
@@ -138,6 +140,15 @@ export const useSocketWithRedux = () => {
       console.log("💬 CHAT MESSAGE RECEIVED:", chatMessage);
       dispatch(addChatMessage(chatMessage));
     });
+
+    // Listen for timer updates
+    socket.on(
+      "timer-update",
+      (timerData: { remainingTime: number; currentPlayerId: string }) => {
+        console.log("⏰ TIMER UPDATE RECEIVED:", timerData);
+        // Timer updates are handled via the game state, but we could add specific handling here
+      }
+    );
 
     // Cleanup on unmount
     return () => {
