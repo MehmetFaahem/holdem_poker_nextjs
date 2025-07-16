@@ -273,6 +273,20 @@ const gameSlice = createSlice({
       };
       state.quickAction = null;
     },
+
+    // Blind position management
+    setBlindPositions: (
+      state,
+      action: PayloadAction<{
+        smallBlindPosition?: number;
+        bigBlindPosition?: number;
+      }>
+    ) => {
+      if (state.gameState) {
+        state.gameState.smallBlindPosition = action.payload.smallBlindPosition;
+        state.gameState.bigBlindPosition = action.payload.bigBlindPosition;
+      }
+    },
   },
 });
 
@@ -298,6 +312,7 @@ export const {
   setQuickAction,
   clearQuickAction,
   resetGame,
+  setBlindPositions,
 } = gameSlice.actions;
 
 export default gameSlice.reducer;

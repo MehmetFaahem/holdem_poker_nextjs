@@ -12,7 +12,7 @@ import { PokerTableView } from "@/components/PokerTableView";
 import { LandscapeWarning } from "@/components/LandscapeWarning";
 import { ChatIcon } from "@/components/ChatIcon";
 import { ChatWindow } from "@/components/ChatWindow";
-import { resetGame } from "@/store/gameSlice";
+import { resetGame, setBlindPositions } from "@/store/gameSlice";
 import { toggleChat, closeChat } from "@/store/gameSlice";
 import type { StakeData } from "@/components/Stakes";
 
@@ -158,11 +158,31 @@ export default function GamePage() {
       // Check if we need to auto-join players and start the game
       const autoJoinPlayers = sessionStorage.getItem("autoJoinPlayers");
       const autoGameStakes = sessionStorage.getItem("autoGameStakes");
+      const autoBlindPositions = sessionStorage.getItem("autoBlindPositions");
 
       if (autoJoinPlayers && autoGameStakes) {
         try {
           const playerNames = JSON.parse(autoJoinPlayers);
           const stakeData = JSON.parse(autoGameStakes);
+
+          // Load blind positions if available
+          if (autoBlindPositions) {
+            try {
+              const blindData = JSON.parse(autoBlindPositions);
+              console.log(
+                "Setting blind positions from poker table:",
+                blindData
+              );
+              dispatch(
+                setBlindPositions({
+                  smallBlindPosition: blindData.smallBlindPosition,
+                  bigBlindPosition: blindData.bigBlindPosition,
+                })
+              );
+            } catch (blindError) {
+              console.error("Error parsing blind position data:", blindError);
+            }
+          }
 
           // Find current user in the player list
           const currentUserName = user?.name;
@@ -192,6 +212,7 @@ export default function GamePage() {
         sessionStorage.removeItem("gameTableId");
         sessionStorage.removeItem("autoJoinPlayers");
         sessionStorage.removeItem("autoGameStakes");
+        sessionStorage.removeItem("autoBlindPositions");
       }
     }
   }, [currentTable]);

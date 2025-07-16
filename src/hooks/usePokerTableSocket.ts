@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAppDispatch, useAppSelector } from "./useAppSelector";
 import { updateTablePlayer, removeTablePlayer } from "@/store/tableSlice";
+import { setBlindPositions } from "@/store/gameSlice";
 import { showToast } from "@/utils/toast";
 import { useRouter } from "next/navigation";
 import { useSocketWithRedux } from "./useSocketWithRedux";
@@ -80,6 +81,47 @@ export const usePokerTableSocket = (tableId: number | null) => {
             startingChips: data.table.stake.buy_in.min,
           };
           sessionStorage.setItem("autoGameStakes", JSON.stringify(stakeData));
+
+          // Calculate blind positions based on poker rules
+          // In Texas Hold'em: Small blind is left of dealer, Big blind is left of small blind
+          const players = data.table.players || [];
+          if (players.length >= 2) {
+            // Check if the event data contains explicit blind positions
+            let smallBlindPosition = data.table.small_blind_position;
+            let bigBlindPosition = data.table.big_blind_position;
+
+            // If no explicit blind positions, calculate based on dealer and poker rules
+            if (
+              smallBlindPosition === undefined ||
+              bigBlindPosition === undefined
+            ) {
+              const dealerPosition = data.table.dealer_position || 0;
+              const numPlayers = players.length;
+
+              if (numPlayers === 2) {
+                // Heads-up: dealer is small blind, other player is big blind
+                smallBlindPosition = dealerPosition;
+                bigBlindPosition = dealerPosition === 0 ? 1 : 0;
+              } else {
+                // Multi-player: small blind is next position after dealer, big blind is after small blind
+                smallBlindPosition = (dealerPosition + 1) % numPlayers;
+                bigBlindPosition = (dealerPosition + 2) % numPlayers;
+              }
+            }
+
+            // Store blind positions for the game
+            const blindData = {
+              smallBlindPosition,
+              bigBlindPosition,
+              dealerPosition: data.table.dealer_position || 0,
+            };
+            sessionStorage.setItem(
+              "autoBlindPositions",
+              JSON.stringify(blindData)
+            );
+
+            console.log("Calculated blind positions:", blindData);
+          }
         }
 
         showToast.success("Game starting automatically!");

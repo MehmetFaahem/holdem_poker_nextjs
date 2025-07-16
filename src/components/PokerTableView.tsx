@@ -10,6 +10,7 @@ import { showToast } from "@/utils/toast";
 import { useSocketWithRedux } from "@/hooks/useSocketWithRedux";
 import Image from "next/image";
 import { useOrientation } from "@/hooks/useOrientation";
+import { BlindBadge } from "./BlindBadge";
 
 export const PokerTableView: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -21,6 +22,7 @@ export const PokerTableView: React.FC = () => {
 
   const { currentTable, isLeaving } = useAppSelector((state) => state.table);
   const { user } = useAppSelector((state) => state.auth);
+  const { gameState } = useAppSelector((state) => state.game);
 
   // Check if device is mobile
   useEffect(() => {
@@ -157,11 +159,23 @@ export const PokerTableView: React.FC = () => {
     const player = currentTable.players.find((p) => p.position === position);
     const isCurrentUser = player?.user.id === user?.id;
 
+    // Check if this position has small or big blind
+    const isSmallBlind = gameState?.smallBlindPosition === position;
+    const isBigBlind = gameState?.bigBlindPosition === position;
+
     // Adjust seat size based on screen size
     const seatSize = isMobile ? "scale-75" : "sm:scale-90 md:scale-100";
 
     return (
       <div className={`absolute ${className} ${seatSize} transform-gpu`}>
+        {/* Blind Badges - positioned above the player seat */}
+        {player && (isSmallBlind || isBigBlind) && (
+          <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-20">
+            {isSmallBlind && <BlindBadge type="small" className="scale-75" />}
+            {isBigBlind && <BlindBadge type="big" className="scale-75" />}
+          </div>
+        )}
+
         <div
           className={`bg-black w-[100px] h-[120px] rounded-full p-2 sm:p-3 border-2 ${
             player ? "border-blue-500" : "border-gray-700"

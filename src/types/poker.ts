@@ -75,6 +75,8 @@ export interface GameState {
   minimumRaise: number;
   lastRaiseAmount: number;
   dealerPosition: number;
+  smallBlindPosition?: number; // Position of small blind player
+  bigBlindPosition?: number; // Position of big blind player
   currentPlayerIndex: number;
   roundStartPlayerIndex: number;
   gamePhase:

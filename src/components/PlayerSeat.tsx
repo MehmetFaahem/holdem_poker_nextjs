@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Player } from "@/types/poker";
 import { Card } from "./Card";
 import { ActionBadge } from "./ActionBadge";
+import { BlindBadge } from "./BlindBadge";
 import { useAppSelector } from "@/hooks/useAppSelector";
 import { useDispatch } from "react-redux";
 import { removeActionBadge } from "@/store/gameSlice";
@@ -25,6 +26,11 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
 }) => {
   const dispatch = useDispatch();
   const { recentActions } = useAppSelector((state) => state.game);
+  const { gameState } = useAppSelector((state) => state.game);
+
+  // Check if this position has small or big blind
+  const isSmallBlind = gameState?.smallBlindPosition === position;
+  const isBigBlind = gameState?.bigBlindPosition === position;
 
   // Find the most recent action for this player
   const playerAction = player
@@ -108,6 +114,14 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
       {isDealer && (
         <div className="absolute -top-2 -left-2 w-6 h-6 md:w-7 md:h-7 bg-gradient-to-br from-yellow-400 to-yellow-600 border-2 border-white rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg animate-pulse z-10">
           D
+        </div>
+      )}
+
+      {/* Blind Badges - positioned above the player name */}
+      {(isSmallBlind || isBigBlind) && (
+        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 z-10">
+          {isSmallBlind && <BlindBadge type="small" />}
+          {isBigBlind && <BlindBadge type="big" />}
         </div>
       )}
 
